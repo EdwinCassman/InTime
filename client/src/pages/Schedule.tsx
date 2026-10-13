@@ -1,0 +1,499 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { ShiftDetailModal } from '../components/ShiftDetailModal'
+import { useAuth } from '../context/AuthContext'
+import { api, previewShiftTimes, type Employee, type Shift, type ShiftTemplate } from '../lib/api'
+import { templateBadgeClass } from '../lib/shiftColors'
+
+function startOfWeek(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day // Monday as start of week
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function toLocalInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function toLocalDateValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+const columnHeaderFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
+const columnDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+
+export function Schedule() {
+  const { user } = useAuth()
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
+  const [shifts, setShifts] = useState<Shift[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [templates, setTemplates] = useState<ShiftTemplate[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null)
+
+  const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart])
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
+
+  async function loadShifts() {
+    setError(null)
+    try {
+      const data = await api.get<Shift[]>(
+        `/shifts?from=${weekStart.toISOString()}&to=${weekEnd.toISOString()}`,
+      )
+      setShifts(data)
+    } catch {
+      setError('Could not load the schedule.')
+    }
+  }
+
+  useEffect(() => {
+    loadShifts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart])
+
+  useEffect(() => {
+    api.get<Employee[]>('/employees').then(setEmployees).catch(() => {})
+    if (user?.role === 'ADMIN') {
+      api.get<ShiftTemplate[]>('/shift-templates').then(setTemplates).catch(() => {})
+    }
+  }, [user])
+
+  // "Me" row first (even if that account isn't in the fetched list yet), everyone else after.
+  // Admin accounts don't work shifts, so they don't get a row here.
+  const orderedEmployees = useMemo(() => {
+    const scheduledEmployees = employees.filter((e) => e.role !== 'ADMIN')
+    const mine = scheduledEmployees.filter((e) => e.id === user?.id)
+    const others = scheduledEmployees.filter((e) => e.id !== user?.id)
+    return [...mine, ...others]
+  }, [employees, user])
+
+  const today = new Date()
+
+  function shiftsFor(userId: string, day: Date): Shift[] {
+    const dayEnd = addDays(day, 1)
+    return shifts
+      .filter((s) => s.userId === userId && new Date(s.startsAt) >= day && new Date(s.startsAt) < dayEnd)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  }
+
+  // Shifts this employee was approved off of, still open (not yet claimed by
+  // someone else) — shown greyed-out in their row as a reminder, in addition
+  // to appearing in the Open Shifts row below.
+  function approvedOffShiftsFor(userId: string, day: Date): Shift[] {
+    const dayEnd = addDays(day, 1)
+    return shifts
+      .filter(
+        (s) =>
+          s.userId === null &&
+          s.originalUser?.id === userId &&
+          new Date(s.startsAt) >= day &&
+          new Date(s.startsAt) < dayEnd,
+      )
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  }
+
+  function openShiftsFor(day: Date): Shift[] {
+    const dayEnd = addDays(day, 1)
+    return shifts
+      .filter((s) => s.userId === null && new Date(s.startsAt) >= day && new Date(s.startsAt) < dayEnd)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setWeekStart(addDays(weekStart, -7))}
+            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100"
+          >
+            ← Prev
+          </button>
+          <span className="text-sm font-medium text-slate-700">
+            {dayFormatter.format(weekStart)} – {dayFormatter.format(addDays(weekStart, 6))}
+          </span>
+          <button
+            onClick={() => setWeekStart(addDays(weekStart, 7))}
+            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100"
+          >
+            Next →
+          </button>
+          <button
+            onClick={() => setWeekStart(startOfWeek(new Date()))}
+            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100"
+          >
+            Today
+          </button>
+        </div>
+        {user?.role === 'ADMIN' && (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            {showForm ? 'Close' : '+ Add shift'}
+          </button>
+        )}
+      </div>
+
+      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+      {showForm && user?.role === 'ADMIN' && (
+        <ShiftForm
+          employees={employees}
+          templates={templates}
+          defaultStart={weekStart}
+          onCreated={() => {
+            setShowForm(false)
+            loadShifts()
+          }}
+        />
+      )}
+
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2">Employee</th>
+              {days.map((day) => {
+                const isToday = isSameDay(day, today)
+                return (
+                  <th
+                    key={day.toISOString()}
+                    className={`px-2 py-2 text-center font-normal normal-case ${isToday ? 'bg-indigo-100 text-indigo-700' : ''}`}
+                  >
+                    <div className="font-medium uppercase">{columnHeaderFormatter.format(day)}</div>
+                    <div className={isToday ? 'text-[10px] text-indigo-500' : 'text-[10px] text-slate-400'}>
+                      {columnDateFormatter.format(day)}
+                    </div>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {orderedEmployees.map((emp) => {
+              const isMe = emp.id === user?.id
+              return (
+                <tr key={emp.id} className={isMe ? 'bg-emerald-50/60' : undefined}>
+                  <td
+                    className={`sticky left-0 z-10 px-4 py-2 font-medium ${
+                      isMe ? 'bg-emerald-50/60 text-emerald-800' : 'bg-white text-slate-800'
+                    }`}
+                  >
+                    {emp.name}
+                    {isMe && <span className="ml-1 text-xs font-normal text-emerald-600">(you)</span>}
+                  </td>
+                  {days.map((day) => {
+                    const dayShifts = shiftsFor(emp.id, day)
+                    const approvedOffShifts = approvedOffShiftsFor(emp.id, day)
+                    const isToday = isSameDay(day, today)
+                    return (
+                      <td
+                        key={day.toISOString()}
+                        className={`px-2 py-2 align-top ${isToday ? 'ring-1 ring-inset ring-indigo-300' : ''} ${
+                          isToday && !isMe ? 'bg-indigo-50/50' : ''
+                        }`}
+                      >
+                        {dayShifts.length === 0 && approvedOffShifts.length === 0 ? (
+                          <span className="block text-center text-slate-300">—</span>
+                        ) : (
+                          <div className="space-y-1">
+                            {dayShifts.map((shift) => (
+                              <div
+                                key={shift.id}
+                                onClick={() => setSelectedShiftId(shift.id)}
+                                className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 ${isMe ? 'bg-emerald-100' : 'bg-slate-50'}`}
+                              >
+                                {shift.shiftTemplate && (
+                                  <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(shift.shiftTemplate.name)}`}>
+                                    {shift.shiftTemplate.name}
+                                  </span>
+                                )}
+                                <div className="text-slate-600">
+                                  {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
+                                </div>
+                                {shift.notes && <div className="text-slate-500">{shift.notes}</div>}
+                                {user?.role === 'ADMIN' && (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation()
+                                      await api.delete(`/shifts/${shift.id}`)
+                                      loadShifts()
+                                    }}
+                                    className="text-red-600 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            {approvedOffShifts.map((shift) => (
+                              <div
+                                key={shift.id}
+                                onClick={() => setSelectedShiftId(shift.id)}
+                                className="cursor-pointer rounded border border-dashed border-slate-300 bg-slate-100 p-1.5 text-xs text-slate-400 hover:ring-1 hover:ring-slate-400"
+                              >
+                                <div>
+                                  {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
+                                </div>
+                                <div className="italic">Off (approved)</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+            {orderedEmployees.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
+                  No employees yet.
+                </td>
+              </tr>
+            )}
+            {shifts.some((s) => s.userId === null) && (
+              <tr className="border-t-2 border-amber-200 bg-amber-50/40">
+                <td className="sticky left-0 z-10 bg-amber-50/40 px-4 py-2 font-medium text-amber-800">
+                  Open Shifts
+                </td>
+                {days.map((day) => {
+                  const dayOpenShifts = openShiftsFor(day)
+                  return (
+                    <td key={day.toISOString()} className="px-2 py-2 align-top">
+                      {dayOpenShifts.length === 0 ? (
+                        <span className="block text-center text-slate-300">—</span>
+                      ) : (
+                        <div className="space-y-1">
+                          {dayOpenShifts.map((shift) => (
+                            <div
+                              key={shift.id}
+                              onClick={() => setSelectedShiftId(shift.id)}
+                              className="cursor-pointer rounded border border-dashed border-amber-400 bg-amber-100 p-1.5 text-xs hover:ring-1 hover:ring-amber-500"
+                            >
+                              {shift.shiftTemplate && (
+                                <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(shift.shiftTemplate.name)}`}>
+                                  {shift.shiftTemplate.name}
+                                </span>
+                              )}
+                              <div className="text-amber-800">
+                                {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
+                              </div>
+                              {shift.originalUser && (
+                                <div className="text-amber-600">was {shift.originalUser.name}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedShiftId && (
+        <ShiftDetailModal
+          shiftId={selectedShiftId}
+          onClose={() => setSelectedShiftId(null)}
+          onChanged={loadShifts}
+        />
+      )}
+    </div>
+  )
+}
+
+function ShiftForm({
+  employees,
+  templates,
+  defaultStart,
+  onCreated,
+}: {
+  employees: Employee[]
+  templates: ShiftTemplate[]
+  defaultStart: Date
+  onCreated: () => void
+}) {
+  const [mode, setMode] = useState<'standard' | 'custom'>('standard')
+  const [userId, setUserId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  // Standard-shift fields
+  const [date, setDate] = useState(toLocalDateValue(defaultStart))
+  const [shiftTemplateId, setShiftTemplateId] = useState('')
+
+  // Custom-time fields
+  const [startsAt, setStartsAt] = useState(toLocalInputValue(defaultStart))
+  const [endsAt, setEndsAt] = useState(toLocalInputValue(defaultStart))
+
+  const selectedTemplate = templates.find((t) => t.id === shiftTemplateId)
+  const preview = useMemo(() => {
+    if (!selectedTemplate || !date) return null
+    const [year, month, day] = date.split('-').map(Number)
+    const weekday = new Date(year, month - 1, day).getDay()
+    return previewShiftTimes(selectedTemplate, weekday)
+  }, [selectedTemplate, date])
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    try {
+      if (mode === 'standard') {
+        await api.post('/shifts', { userId, date, shiftTemplateId, notes: notes || undefined })
+      } else {
+        await api.post('/shifts', {
+          userId,
+          startsAt: new Date(startsAt).toISOString(),
+          endsAt: new Date(endsAt).toISOString(),
+          notes: notes || undefined,
+        })
+      }
+      onCreated()
+    } catch {
+      setError('Could not create shift. Check the employee, date and times.')
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex gap-2 text-sm">
+        <button
+          type="button"
+          onClick={() => setMode('standard')}
+          className={`rounded px-2 py-1 ${mode === 'standard' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+        >
+          Standard shift
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('custom')}
+          className={`rounded px-2 py-1 ${mode === 'custom' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+        >
+          Custom times
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Employee</label>
+          <select
+            required
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          >
+            <option value="">Select…</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {mode === 'standard' ? (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Date</label>
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Shift</label>
+              <select
+                required
+                value={shiftTemplateId}
+                onChange={(e) => setShiftTemplateId(e.target.value)}
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">Select…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Times</label>
+              <p className="rounded border border-dashed border-slate-300 px-2 py-1.5 text-sm text-slate-500">
+                {preview ? `${preview.start} – ${preview.end}${preview.endNextDay ? ' (+1d)' : ''}` : '—'}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Starts</label>
+              <input
+                type="datetime-local"
+                required
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Ends</label>
+              <input
+                type="datetime-local"
+                required
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+          </>
+        )}
+
+        <div className={mode === 'standard' ? 'sm:col-span-4' : 'sm:col-span-2'}>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Notes</label>
+          <input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-600 sm:col-span-4">{error}</p>}
+
+        <div className="sm:col-span-4">
+          <button
+            type="submit"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Save shift
+          </button>
+        </div>
+      </div>
+    </form>
+  )
+}

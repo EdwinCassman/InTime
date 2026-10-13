@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum TimeOffRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum ShiftClaimRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum ShiftNoteType {
+  INFO
+  TODO
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(EMPLOYEE)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  shifts               Shift[]                @relation("AssignedShifts")
+  originalShifts       Shift[]                @relation("OriginalShifts")
+  recurringAssignments RecurringAssignment[]
+  scheduleOverrides    ScheduleOverride[]
+  timeOffRequests      TimeOffRequest[]
+  shiftClaimRequests   ShiftClaimRequest[]
+  shiftNotes           ShiftNote[]            @relation("AuthoredNotes")
+  completedShiftNotes  ShiftNote[]            @relation("CompletedNotes")
+}
+
+// A named standard shift (e.g. Opening/Day/Closing) with times that can differ
+// between weekdays and weekends, and may run past midnight.
+model ShiftTemplate {
+  id                String  @id @default(cuid())
+  name              String  @unique
+  weekdayStart      String // "HH:mm"
+  weekdayEnd        String // "HH:mm"
+  weekdayEndNextDay Boolean @default(false)
+  weekendStart      String // "HH:mm"
+  weekendEnd        String // "HH:mm"
+  weekendEndNextDay Boolean @default(false)
+
+  shifts               Shift[]
+  recurringAssignments RecurringAssignment[]
+}
+
+// The employee's standing pattern across a repeating 14-day cycle: which
+// template (if any) applies on a given cycle day. cycleDay 0-6 is "week 1"
+// (0 = Monday), 7-13 is "week 2" (7 = Monday). The cycle repeats forever from
+// a fixed reference date (see lib/cycle.ts) so two employees' patterns (e.g.
+// a 7-on/7-off rotation) can be offset from each other. This is what the
+// rolling 2-week schedule is generated from.
+model RecurringAssignment {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycleDay        Int // 0-13
+  shiftTemplateId String
+  shiftTemplate   ShiftTemplate @relation(fields: [shiftTemplateId], references: [id])
+
+  @@unique([userId, cycleDay])
+}
+
+// Marks a (user, calendar day) as explicitly overridden — created whenever an
+// admin deletes a shift — so the rolling-schedule generator never recreates a
+// shift there (e.g. a sick day stays empty instead of being auto-refilled).
+model ScheduleOverride {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date   DateTime
+
+  @@unique([userId, date])
+}
+
+// A planned shift on the schedule (who should be working when). userId is
+// null when the shift is "open" — the original employee had a time-off
+// request approved, and anyone without a conflicting shift can claim it.
+model Shift {
+  id              String         @id @default(cuid())
+  userId          String?
+  user            User?          @relation("AssignedShifts", fields: [userId], references: [id], onDelete: SetNull)
+  originalUserId  String?
+  originalUser    User?          @relation("OriginalShifts", fields: [originalUserId], references: [id], onDelete: SetNull)
+  startsAt        DateTime
+  endsAt          DateTime
+  notes           String?
+  shiftTemplateId String?
+  shiftTemplate   ShiftTemplate? @relation(fields: [shiftTemplateId], references: [id])
+  fromRecurring   Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+
+  timeOffRequests   TimeOffRequest[]
+  claimRequests     ShiftClaimRequest[]
+  shiftNotes        ShiftNote[]
+
+  @@index([userId, startsAt])
+}
+
+// A request from the shift's own employee to be taken off it. Approving one
+// opens the shift up for another employee to claim (see Shift.userId) rather
+// than deleting it, and also records a ScheduleOverride for the original
+// employee so the rolling generator doesn't re-fill their slot that day.
+model TimeOffRequest {
+  id            String               @id @default(cuid())
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shiftId       String?
+  shift         Shift?               @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  shiftStartsAt DateTime
+  shiftEndsAt   DateTime
+  status        TimeOffRequestStatus @default(PENDING)
+  reason        String?
+  createdAt     DateTime             @default(now())
+  resolvedAt    DateTime?
+
+  @@index([userId])
+  @@index([shiftId])
+}
+
+// A request from an employee to take an open (unassigned) shift. Admin picks
+// who gets it — approving one request assigns the shift to that user and
+// automatically denies every other pending request for the same shift.
+model ShiftClaimRequest {
+  id            String                  @id @default(cuid())
+  userId        String
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shiftId       String?
+  shift         Shift?                  @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  shiftStartsAt DateTime
+  shiftEndsAt   DateTime
+  status        ShiftClaimRequestStatus @default(PENDING)
+  createdAt     DateTime                @default(now())
+  resolvedAt    DateTime?
+
+  @@index([userId])
+  @@index([shiftId])
+}
+
+// A note left on a specific shift instance, readable/writable by that shift's
+// employee, anyone with an overlapping shift the same time, and admins.
+// TODO notes can be checked off by anyone with that access, not just the author.
+model ShiftNote {
+  id            String        @id @default(cuid())
+  shiftId       String
+  shift         Shift         @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User          @relation("AuthoredNotes", fields: [authorId], references: [id], onDelete: Cascade)
+  body          String
+  type          ShiftNoteType @default(INFO)
+  completed     Boolean       @default(false)
+  completedById String?
+  completedBy   User?         @relation("CompletedNotes", fields: [completedById], references: [id], onDelete: SetNull)
+  completedAt   DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([shiftId])
+}
