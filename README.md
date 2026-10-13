@@ -6,7 +6,7 @@ Employee scheduling app.
 - **Recurring Schedule** — each employee's standing 2-week rotation, auto-generated forward on a rolling basis.
 - **Reports** — hours worked per employee for a given month, counted from completed scheduled shifts (full shift duration, no break deduction).
 - **Requests** — admin review of time-off requests and open-shift claims.
-- **Employees** — admin-only roster management (add, change role/rate, deactivate).
+- **Employees** — admin-only roster management (add, change role, reset password, deactivate).
 
 ## Stack
 
@@ -43,3 +43,30 @@ Log in with the admin email/password you seeded, then use the Employees page to 
 - `cd server && npm run dev` — API on :4000
 - `cd client && npm run dev` — web app on :5173
 - `cd server && npm run prisma:studio` — browse/edit the database visually
+
+## Deploying
+
+In production this runs as a single service: the API server also serves the
+built frontend (no separate static host, no CORS). From the repo root:
+
+```bash
+npm run build   # builds client/dist, then compiles the server
+npm start       # runs `prisma migrate deploy`, then starts the server
+```
+
+Point it at any Node + PostgreSQL host (e.g. Railway, Render) with these
+environment variables set:
+
+- `DATABASE_URL` — the host's Postgres connection string
+- `JWT_SECRET` — a long random string (**not** the dev default — anyone with
+  this can forge logins)
+- `NODE_ENV=production` — most platforms set this automatically; it's what
+  tells the server to serve the built frontend
+- `PORT` — most platforms set this automatically
+
+After the first deploy, seed an admin account once (same command as local
+setup, pointed at the production `DATABASE_URL`):
+
+```bash
+SEED_ADMIN_EMAIL=you@company.com SEED_ADMIN_PASSWORD=yourpassword npm run seed --prefix server
+```
