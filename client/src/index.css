@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
+/* Makes `dark:` utilities respond to a `.dark` class (toggled by ThemeContext)
+   instead of the OS `prefers-color-scheme`, so the in-app toggle is in control. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  /* The app is only styled for light mode — letting the browser also apply its
-     dark-mode native widget styles (e.g. white text in inputs) breaks it. */
   color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
 }
 
 body {

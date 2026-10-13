@@ -3,13 +3,13 @@ import { useAuth } from '../context/AuthContext'
 import { api, type ShiftDetail, type ShiftNote, type ShiftNoteType } from '../lib/api'
 import { templateBadgeClass } from '../lib/shiftColors'
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+const dateTimeFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'long',
   month: 'short',
   day: 'numeric',
 })
-const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
-const noteTimeFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit' })
+const noteTimeFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 function toTimeInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -62,7 +62,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
         setNotes(await api.get<ShiftNote[]>(`/shifts/${shiftId}/notes`))
       }
     } catch {
-      setError('Could not load this shift.')
+      setError('Kunde inte ladda passet.')
     } finally {
       setLoading(false)
     }
@@ -83,7 +83,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
       await load()
       onChanged()
     } catch {
-      setRequestError('Could not submit the request.')
+      setRequestError('Kunde inte skicka förfrågan.')
     } finally {
       setRequestBusy(false)
     }
@@ -98,7 +98,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
       setNoteType('INFO')
       setNotes(await api.get<ShiftNote[]>(`/shifts/${shiftId}/notes`))
     } catch {
-      setError('Could not post the note.')
+      setError('Kunde inte skicka anteckningen.')
     } finally {
       setNoteBusy(false)
     }
@@ -109,7 +109,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
       await api.patch(`/shifts/${note.shiftId}/notes/${note.id}`, { completed: !note.completed })
       setNotes(await api.get<ShiftNote[]>(`/shifts/${shiftId}/notes`))
     } catch {
-      setError('Could not update that to-do.')
+      setError('Kunde inte uppdatera uppgiften.')
     }
   }
 
@@ -118,7 +118,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
       await api.delete(`/shifts/${note.shiftId}/notes/${note.id}`)
       setNotes(await api.get<ShiftNote[]>(`/shifts/${shiftId}/notes`))
     } catch {
-      setError('Could not delete that note.')
+      setError('Kunde inte ta bort anteckningen.')
     }
   }
 
@@ -139,7 +139,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
       await load()
       onChanged()
     } catch {
-      setTimesError('Could not update the times. Times must be on a 15-minute mark (:00, :15, :30, :45).')
+      setTimesError('Kunde inte uppdatera tiderna. Tiderna måste vara på en 15-minutersgräns (:00, :15, :30, :45).')
     } finally {
       setTimesBusy(false)
     }
@@ -153,7 +153,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
       await load()
       onChanged()
     } catch {
-      setClaimError('Could not request this shift — you may already be working at that time.')
+      setClaimError('Kunde inte anmäla intresse för passet — du kanske redan jobbar vid den tiden.')
     } finally {
       setClaimBusy(false)
     }
@@ -162,30 +162,30 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-lg"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-lg dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        {loading && <p className="text-sm text-slate-500">Loading…</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Laddar…</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         {detail && (
           <>
             <div className="mb-4 flex items-start justify-between">
               <div>
                 {isOpen ? (
-                  <h2 className="text-lg font-semibold text-amber-700">
-                    Open shift
+                  <h2 className="text-lg font-semibold text-amber-700 dark:text-amber-400">
+                    Ledigt pass
                     {detail.shift.originalUser && (
-                      <span className="ml-1 text-sm font-normal text-slate-400">
-                        (was {detail.shift.originalUser.name})
+                      <span className="ml-1 text-sm font-normal text-slate-400 dark:text-slate-500">
+                        (var {detail.shift.originalUser.name})
                       </span>
                     )}
                   </h2>
                 ) : (
-                  <h2 className="text-lg font-semibold text-slate-900">{detail.shift.user?.name}</h2>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{detail.shift.user?.name}</h2>
                 )}
-                <p className="text-sm text-slate-500">{dateTimeFormatter.format(new Date(detail.shift.startsAt))}</p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">{dateTimeFormatter.format(new Date(detail.shift.startsAt))}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   {timeFormatter.format(new Date(detail.shift.startsAt))} – {timeFormatter.format(new Date(detail.shift.endsAt))}
                 </p>
               </div>
@@ -195,56 +195,58 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                     {detail.shift.shiftTemplate.name}
                   </span>
                 )}
-                <button onClick={onClose} className="text-slate-400 hover:text-slate-700" aria-label="Close">
+                <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300" aria-label="Stäng">
                   ✕
                 </button>
               </div>
             </div>
 
             {isOwn && hasStarted && (
-              <section className="mb-4 rounded border border-slate-200 p-3">
+              <section className="mb-4 rounded border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase text-slate-500">Actual start/end</h3>
+                  <h3 className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Faktisk start/slut</h3>
                   {!showTimesForm && (
                     <button
                       onClick={() => setShowTimesForm(true)}
-                      className="text-xs font-medium text-slate-600 hover:underline"
+                      className="text-xs font-medium text-slate-600 hover:underline dark:text-slate-300"
                     >
-                      Adjust
+                      Justera
                     </button>
                   )}
                 </div>
                 {showTimesForm && (
                   <div className="mt-2 space-y-2">
                     <div className="flex items-center gap-2">
-                      <label className="w-12 text-xs text-slate-500">Start</label>
+                      <label className="w-12 text-xs text-slate-500 dark:text-slate-400">Start</label>
                       <input
                         type="time"
                         step={900}
                         value={startTimeInput}
                         onChange={(e) => setStartTimeInput(e.target.value)}
-                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="w-12 text-xs text-slate-500">End</label>
+                      <label className="w-12 text-xs text-slate-500 dark:text-slate-400">Slut</label>
                       <input
                         type="time"
                         step={900}
                         value={endTimeInput}
                         onChange={(e) => setEndTimeInput(e.target.value)}
-                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-400">Times can only be set to :00, :15, :30, or :45.</p>
-                    {timesError && <p className="text-xs text-red-600">{timesError}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      Tider kan bara ställas in på :00, :15, :30 eller :45.
+                    </p>
+                    {timesError && <p className="text-xs text-red-600 dark:text-red-400">{timesError}</p>}
                     <div className="flex gap-2">
                       <button
                         onClick={submitTimeAdjustment}
                         disabled={timesBusy}
-                        className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                        className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
                       >
-                        Save
+                        Spara
                       </button>
                       <button
                         onClick={() => {
@@ -252,9 +254,9 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                           setStartTimeInput(toTimeInputValue(new Date(detail.shift.startsAt)))
                           setEndTimeInput(toTimeInputValue(new Date(detail.shift.endsAt)))
                         }}
-                        className="rounded border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50"
+                        className="rounded border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
                       >
-                        Cancel
+                        Avbryt
                       </button>
                     </div>
                   </div>
@@ -263,31 +265,33 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
             )}
 
             {isOpen && (
-              <section className="mb-4 rounded border border-amber-200 bg-amber-50 p-3">
+              <section className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
                 {!canClaim ? (
-                  <p className="text-sm text-amber-800">You were approved off this shift, so you can't request it back.</p>
+                  <p className="text-sm text-amber-800 dark:text-amber-300">
+                    Du blev godkänd ledig från detta pass, så du kan inte begära tillbaka det.
+                  </p>
                 ) : detail.myClaimRequest?.status === 'PENDING' ? (
-                  <p className="text-sm text-amber-800">
-                    This shift is up for grabs. Your request is pending — admin will decide if more than one person wants it.
+                  <p className="text-sm text-amber-800 dark:text-amber-300">
+                    Detta pass är ledigt. Din förfrågan väntar på godkännande — admin avgör om fler än en person vill ha det.
                   </p>
                 ) : detail.myClaimRequest?.status === 'APPROVED' ? (
-                  <p className="text-sm text-emerald-700">Your request was approved — this shift is now yours.</p>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-400">Din förfrågan godkändes — passet är nu ditt.</p>
                 ) : (
                   <>
-                    <p className="mb-2 text-sm text-amber-800">
-                      This shift is up for grabs. Request it if you're not already working at that time — admin will
-                      approve who gets it.
+                    <p className="mb-2 text-sm text-amber-800 dark:text-amber-300">
+                      Detta pass är ledigt. Anmäl intresse om du inte redan jobbar vid den tiden — admin avgör vem som
+                      får det.
                     </p>
                     {detail.myClaimRequest?.status === 'DENIED' && (
-                      <p className="mb-2 text-xs text-red-600">Your previous request for this shift was denied.</p>
+                      <p className="mb-2 text-xs text-red-600 dark:text-red-400">Din tidigare förfrågan för detta pass nekades.</p>
                     )}
-                    {claimError && <p className="mb-2 text-xs text-red-600">{claimError}</p>}
+                    {claimError && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{claimError}</p>}
                     <button
                       onClick={submitClaim}
                       disabled={claimBusy}
                       className="rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                     >
-                      Request this shift
+                      Anmäl intresse
                     </button>
                   </>
                 )}
@@ -295,17 +299,17 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
             )}
 
             <section className="mb-4">
-              <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500">Working at the same time</h3>
+              <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Jobbar samtidigt</h3>
               {detail.coworkers.length === 0 ? (
-                <p className="text-sm text-slate-400">No one else is scheduled during this shift.</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500">Ingen annan är schemalagd under detta pass.</p>
               ) : (
                 <ul className="space-y-1">
                   {detail.coworkers.map((c) => (
                     <li key={c.id} className="flex items-center justify-between text-sm">
-                      <span className={c.user ? 'text-slate-700' : 'italic text-amber-700'}>
-                        {c.user ? c.user.name : 'Open shift'}
+                      <span className={c.user ? 'text-slate-700 dark:text-slate-300' : 'italic text-amber-700 dark:text-amber-400'}>
+                        {c.user ? c.user.name : 'Ledigt pass'}
                       </span>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
                         {timeFormatter.format(new Date(c.startsAt))} – {timeFormatter.format(new Date(c.endsAt))}
                         {c.shiftTemplate && ` · ${c.shiftTemplate.name}`}
                       </span>
@@ -316,49 +320,49 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
             </section>
 
             {isOwn && (!hasStarted || detail.myTimeOffRequest) && (
-              <section className="mb-4 rounded border border-slate-200 p-3">
-                <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500">Time off</h3>
+              <section className="mb-4 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Ledighet</h3>
                 {detail.myTimeOffRequest?.status === 'PENDING' ? (
-                  <p className="text-sm text-amber-700">
-                    Request pending{detail.myTimeOffRequest.reason ? `: "${detail.myTimeOffRequest.reason}"` : ''}
+                  <p className="text-sm text-amber-700 dark:text-amber-400">
+                    Förfrågan väntar{detail.myTimeOffRequest.reason ? `: "${detail.myTimeOffRequest.reason}"` : ''}
                   </p>
                 ) : (
                   <>
                     {detail.myTimeOffRequest?.status === 'DENIED' && (
-                      <p className="mb-2 text-sm text-red-600">Your previous request was denied.</p>
+                      <p className="mb-2 text-sm text-red-600 dark:text-red-400">Din tidigare förfrågan nekades.</p>
                     )}
                     {hasStarted ? null : showRequestForm ? (
                       <div className="space-y-2">
                         <textarea
                           value={reason}
                           onChange={(e) => setReason(e.target.value)}
-                          placeholder="Reason (optional)"
+                          placeholder="Anledning (valfritt)"
                           rows={2}
-                          className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                          className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
                         />
-                        {requestError && <p className="text-xs text-red-600">{requestError}</p>}
+                        {requestError && <p className="text-xs text-red-600 dark:text-red-400">{requestError}</p>}
                         <div className="flex gap-2">
                           <button
                             onClick={submitRequest}
                             disabled={requestBusy}
-                            className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                            className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
                           >
-                            Submit request
+                            Skicka förfrågan
                           </button>
                           <button
                             onClick={() => setShowRequestForm(false)}
-                            className="rounded border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50"
+                            className="rounded border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
                           >
-                            Cancel
+                            Avbryt
                           </button>
                         </div>
                       </div>
                     ) : (
                       <button
                         onClick={() => setShowRequestForm(true)}
-                        className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+                        className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
                       >
-                        Request time off
+                        Ansök om ledighet
                       </button>
                     )}
                   </>
@@ -368,11 +372,11 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
 
             {detail.canAccessNotes ? (
               <section>
-                <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500">Notes for overlapping shifts</h3>
+                <h3 className="mb-1 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Anteckningar för överlappande pass</h3>
                 <div className="mb-2 max-h-48 space-y-2 overflow-y-auto">
-                  {notes.length === 0 && <p className="text-sm text-slate-400">No notes yet.</p>}
+                  {notes.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">Inga anteckningar än.</p>}
                   {notes.map((n) => (
-                    <div key={n.id} className="flex gap-2 rounded bg-slate-50 p-2 text-sm">
+                    <div key={n.id} className="flex gap-2 rounded bg-slate-50 p-2 text-sm dark:bg-slate-700/50">
                       {n.type === 'TODO' && (
                         <input
                           type="checkbox"
@@ -382,37 +386,37 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span className="font-medium text-slate-700">
+                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span className="font-medium text-slate-700 dark:text-slate-200">
                             {n.author.name}
                             {n.shift.id !== detail.shift.id && (
-                              <span className="ml-1 font-normal text-slate-400">
-                                · on {n.shift.user ? `${n.shift.user.name}'s` : 'an open'} shift
+                              <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">
+                                · på {n.shift.user ? `${n.shift.user.name}s` : 'ett ledigt'} pass
                               </span>
                             )}
                             {n.type === 'TODO' && (
-                              <span className="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-                                TO-DO
+                              <span className="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                                ATT GÖRA
                               </span>
                             )}
                           </span>
                           <span>{noteTimeFormatter.format(new Date(n.createdAt))}</span>
                         </div>
-                        <p className={`mt-0.5 whitespace-pre-wrap ${n.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                        <p className={`mt-0.5 whitespace-pre-wrap ${n.completed ? 'text-slate-400 line-through dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
                           {n.body}
                         </p>
                         {n.completed && n.completedBy && (
-                          <p className="mt-0.5 text-[11px] text-emerald-600">
-                            Done by {n.completedBy.name}
+                          <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+                            Klart av {n.completedBy.name}
                             {n.completedAt && ` · ${noteTimeFormatter.format(new Date(n.completedAt))}`}
                           </p>
                         )}
                         {n.authorId === user?.id && (
                           <button
                             onClick={() => deleteNote(n)}
-                            className="mt-0.5 text-[11px] text-red-600 hover:underline"
+                            className="mt-0.5 text-[11px] text-red-600 hover:underline dark:text-red-400"
                           >
-                            Delete
+                            Ta bort
                           </button>
                         )}
                       </div>
@@ -423,16 +427,16 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                   <button
                     type="button"
                     onClick={() => setNoteType('INFO')}
-                    className={`rounded px-2 py-1 ${noteType === 'INFO' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    className={`rounded px-2 py-1 ${noteType === 'INFO' ? 'bg-slate-900 text-white dark:bg-slate-600' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}
                   >
                     Info
                   </button>
                   <button
                     type="button"
                     onClick={() => setNoteType('TODO')}
-                    className={`rounded px-2 py-1 ${noteType === 'TODO' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    className={`rounded px-2 py-1 ${noteType === 'TODO' ? 'bg-slate-900 text-white dark:bg-slate-600' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}
                   >
-                    To-do
+                    Att göra
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -440,22 +444,22 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                     value={noteBody}
                     onChange={(e) => setNoteBody(e.target.value)}
                     placeholder={
-                      noteType === 'TODO' ? 'Add a task for whoever picks this up…' : "Leave a note for whoever's working this time…"
+                      noteType === 'TODO' ? 'Lägg till en uppgift för den som tar passet…' : 'Lämna en anteckning till den som jobbar då…'
                     }
                     rows={2}
-                    className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
                   />
                   <button
                     onClick={submitNote}
                     disabled={noteBusy || !noteBody.trim()}
-                    className="shrink-0 rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                    className="shrink-0 rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
                   >
-                    Post
+                    Skicka
                   </button>
                 </div>
               </section>
             ) : (
-              <p className="text-xs text-slate-400">You don't have access to notes on this shift.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Du har inte tillgång till anteckningar för detta pass.</p>
             )}
           </>
         )}

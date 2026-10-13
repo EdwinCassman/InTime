@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 const STANDARD_SHIFT_TEMPLATES = [
   {
-    name: "Opening",
+    name: "Öppning",
     weekdayStart: "05:00",
     weekdayEnd: "12:00",
     weekdayEndNextDay: false,
@@ -15,7 +15,7 @@ const STANDARD_SHIFT_TEMPLATES = [
     weekendEndNextDay: false,
   },
   {
-    name: "Day",
+    name: "Dag",
     weekdayStart: "10:00",
     weekdayEnd: "17:00",
     weekdayEndNextDay: false,
@@ -24,7 +24,7 @@ const STANDARD_SHIFT_TEMPLATES = [
     weekendEndNextDay: false,
   },
   {
-    name: "Closing",
+    name: "Stängning",
     weekdayStart: "16:45",
     weekdayEnd: "00:15",
     weekdayEndNextDay: true,

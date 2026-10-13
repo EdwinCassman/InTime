@@ -33,10 +33,10 @@ function toLocalDateValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-const columnHeaderFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
-const columnDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
-const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+const dayFormatter = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', month: 'short', day: 'numeric' })
+const columnHeaderFormatter = new Intl.DateTimeFormat('sv-SE', { weekday: 'short' })
+const columnDateFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'short', day: 'numeric' })
+const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit' })
 
 export function Schedule() {
   const { user } = useAuth()
@@ -59,7 +59,7 @@ export function Schedule() {
       )
       setShifts(data)
     } catch {
-      setError('Could not load the schedule.')
+      setError('Kunde inte ladda schemat.')
     }
   }
 
@@ -122,37 +122,37 @@ export function Schedule() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setWeekStart(addDays(weekStart, -7))}
-            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100"
+            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
           >
-            ← Prev
+            ← Föreg.
           </button>
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {dayFormatter.format(weekStart)} – {dayFormatter.format(addDays(weekStart, 6))}
           </span>
           <button
             onClick={() => setWeekStart(addDays(weekStart, 7))}
-            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100"
+            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
           >
-            Next →
+            Nästa →
           </button>
           <button
             onClick={() => setWeekStart(startOfWeek(new Date()))}
-            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100"
+            className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
           >
-            Today
+            Idag
           </button>
         </div>
         {user?.role === 'ADMIN' && (
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
           >
-            {showForm ? 'Close' : '+ Add shift'}
+            {showForm ? 'Stäng' : '+ Lägg till pass'}
           </button>
         )}
       </div>
 
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {showForm && user?.role === 'ADMIN' && (
         <ShiftForm
@@ -166,20 +166,20 @@ export function Schedule() {
         />
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-900/40 dark:text-slate-400">
             <tr>
-              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2">Employee</th>
+              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2 dark:bg-slate-900/40">Anställd</th>
               {days.map((day) => {
                 const isToday = isSameDay(day, today)
                 return (
                   <th
                     key={day.toISOString()}
-                    className={`px-2 py-2 text-center font-normal normal-case ${isToday ? 'bg-indigo-100 text-indigo-700' : ''}`}
+                    className={`px-2 py-2 text-center font-normal normal-case ${isToday ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' : ''}`}
                   >
                     <div className="font-medium uppercase">{columnHeaderFormatter.format(day)}</div>
-                    <div className={isToday ? 'text-[10px] text-indigo-500' : 'text-[10px] text-slate-400'}>
+                    <div className={isToday ? 'text-[10px] text-indigo-500 dark:text-indigo-400' : 'text-[10px] text-slate-400 dark:text-slate-500'}>
                       {columnDateFormatter.format(day)}
                     </div>
                   </th>
@@ -187,18 +187,20 @@ export function Schedule() {
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {orderedEmployees.map((emp) => {
               const isMe = emp.id === user?.id
               return (
-                <tr key={emp.id} className={isMe ? 'bg-emerald-50/60' : undefined}>
+                <tr key={emp.id} className={isMe ? 'bg-emerald-50/60 dark:bg-emerald-500/10' : undefined}>
                   <td
                     className={`sticky left-0 z-10 px-4 py-2 font-medium ${
-                      isMe ? 'bg-emerald-50/60 text-emerald-800' : 'bg-white text-slate-800'
+                      isMe
+                        ? 'bg-emerald-50/60 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+                        : 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-200'
                     }`}
                   >
                     {emp.name}
-                    {isMe && <span className="ml-1 text-xs font-normal text-emerald-600">(you)</span>}
+                    {isMe && <span className="ml-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">(du)</span>}
                   </td>
                   {days.map((day) => {
                     const dayShifts = shiftsFor(emp.id, day)
@@ -207,29 +209,29 @@ export function Schedule() {
                     return (
                       <td
                         key={day.toISOString()}
-                        className={`px-2 py-2 align-top ${isToday ? 'ring-1 ring-inset ring-indigo-300' : ''} ${
-                          isToday && !isMe ? 'bg-indigo-50/50' : ''
+                        className={`px-2 py-2 align-top ${isToday ? 'ring-1 ring-inset ring-indigo-300 dark:ring-indigo-500/40' : ''} ${
+                          isToday && !isMe ? 'bg-indigo-50/50 dark:bg-indigo-500/10' : ''
                         }`}
                       >
                         {dayShifts.length === 0 && approvedOffShifts.length === 0 ? (
-                          <span className="block text-center text-slate-300">—</span>
+                          <span className="block text-center text-slate-300 dark:text-slate-600">—</span>
                         ) : (
                           <div className="space-y-1">
                             {dayShifts.map((shift) => (
                               <div
                                 key={shift.id}
                                 onClick={() => setSelectedShiftId(shift.id)}
-                                className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 ${isMe ? 'bg-emerald-100' : 'bg-slate-50'}`}
+                                className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 dark:hover:ring-slate-500 ${isMe ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-slate-50 dark:bg-slate-700/60'}`}
                               >
                                 {shift.shiftTemplate && (
                                   <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(shift.shiftTemplate.name)}`}>
                                     {shift.shiftTemplate.name}
                                   </span>
                                 )}
-                                <div className="text-slate-600">
+                                <div className="text-slate-600 dark:text-slate-300">
                                   {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
                                 </div>
-                                {shift.notes && <div className="text-slate-500">{shift.notes}</div>}
+                                {shift.notes && <div className="text-slate-500 dark:text-slate-400">{shift.notes}</div>}
                                 {user?.role === 'ADMIN' && (
                                   <button
                                     onClick={async (e) => {
@@ -237,9 +239,9 @@ export function Schedule() {
                                       await api.delete(`/shifts/${shift.id}`)
                                       loadShifts()
                                     }}
-                                    className="text-red-600 hover:underline"
+                                    className="text-red-600 hover:underline dark:text-red-400"
                                   >
-                                    Remove
+                                    Ta bort
                                   </button>
                                 )}
                               </div>
@@ -248,12 +250,12 @@ export function Schedule() {
                               <div
                                 key={shift.id}
                                 onClick={() => setSelectedShiftId(shift.id)}
-                                className="cursor-pointer rounded border border-dashed border-slate-300 bg-slate-100 p-1.5 text-xs text-slate-400 hover:ring-1 hover:ring-slate-400"
+                                className="cursor-pointer rounded border border-dashed border-slate-300 bg-slate-100 p-1.5 text-xs text-slate-400 hover:ring-1 hover:ring-slate-400 dark:border-slate-600 dark:bg-slate-700/40 dark:text-slate-500 dark:hover:ring-slate-500"
                               >
                                 <div>
                                   {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
                                 </div>
-                                <div className="italic">Off (approved)</div>
+                                <div className="italic">Ledig (godkänd)</div>
                               </div>
                             ))}
                           </div>
@@ -266,40 +268,40 @@ export function Schedule() {
             })}
             {orderedEmployees.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
-                  No employees yet.
+                <td colSpan={8} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
+                  Inga anställda än.
                 </td>
               </tr>
             )}
             {shifts.some((s) => s.userId === null) && (
-              <tr className="border-t-2 border-amber-200 bg-amber-50/40">
-                <td className="sticky left-0 z-10 bg-amber-50/40 px-4 py-2 font-medium text-amber-800">
-                  Open Shifts
+              <tr className="border-t-2 border-amber-200 bg-amber-50/40 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <td className="sticky left-0 z-10 bg-amber-50/40 px-4 py-2 font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                  Lediga pass
                 </td>
                 {days.map((day) => {
                   const dayOpenShifts = openShiftsFor(day)
                   return (
                     <td key={day.toISOString()} className="px-2 py-2 align-top">
                       {dayOpenShifts.length === 0 ? (
-                        <span className="block text-center text-slate-300">—</span>
+                        <span className="block text-center text-slate-300 dark:text-slate-600">—</span>
                       ) : (
                         <div className="space-y-1">
                           {dayOpenShifts.map((shift) => (
                             <div
                               key={shift.id}
                               onClick={() => setSelectedShiftId(shift.id)}
-                              className="cursor-pointer rounded border border-dashed border-amber-400 bg-amber-100 p-1.5 text-xs hover:ring-1 hover:ring-amber-500"
+                              className="cursor-pointer rounded border border-dashed border-amber-400 bg-amber-100 p-1.5 text-xs hover:ring-1 hover:ring-amber-500 dark:border-amber-500/50 dark:bg-amber-500/20"
                             >
                               {shift.shiftTemplate && (
                                 <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(shift.shiftTemplate.name)}`}>
                                   {shift.shiftTemplate.name}
                                 </span>
                               )}
-                              <div className="text-amber-800">
+                              <div className="text-amber-800 dark:text-amber-200">
                                 {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
                               </div>
                               {shift.originalUser && (
-                                <div className="text-amber-600">was {shift.originalUser.name}</div>
+                                <div className="text-amber-600 dark:text-amber-400">var {shift.originalUser.name}</div>
                               )}
                             </div>
                           ))}
@@ -373,39 +375,39 @@ function ShiftForm({
       }
       onCreated()
     } catch {
-      setError('Could not create shift. Check the employee, date and times.')
+      setError('Kunde inte skapa passet. Kontrollera anställd, datum och tider.')
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+    <form onSubmit={handleSubmit} className="mb-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
       <div className="mb-3 flex gap-2 text-sm">
         <button
           type="button"
           onClick={() => setMode('standard')}
-          className={`rounded px-2 py-1 ${mode === 'standard' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+          className={`rounded px-2 py-1 ${mode === 'standard' ? 'bg-slate-900 text-white dark:bg-slate-600' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}
         >
-          Standard shift
+          Standardpass
         </button>
         <button
           type="button"
           onClick={() => setMode('custom')}
-          className={`rounded px-2 py-1 ${mode === 'custom' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+          className={`rounded px-2 py-1 ${mode === 'custom' ? 'bg-slate-900 text-white dark:bg-slate-600' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}
         >
-          Custom times
+          Anpassade tider
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-700">Employee</label>
+          <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Anställd</label>
           <select
             required
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
           >
-            <option value="">Select…</option>
+            <option value="">Välj…</option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
                 {emp.name}
@@ -417,24 +419,24 @@ function ShiftForm({
         {mode === 'standard' ? (
           <>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Date</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Datum</label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Shift</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Pass</label>
               <select
                 required
                 value={shiftTemplateId}
                 onChange={(e) => setShiftTemplateId(e.target.value)}
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               >
-                <option value="">Select…</option>
+                <option value="">Välj…</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -443,54 +445,54 @@ function ShiftForm({
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Times</label>
-              <p className="rounded border border-dashed border-slate-300 px-2 py-1.5 text-sm text-slate-500">
-                {preview ? `${preview.start} – ${preview.end}${preview.endNextDay ? ' (+1d)' : ''}` : '—'}
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Tider</label>
+              <p className="rounded border border-dashed border-slate-300 px-2 py-1.5 text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
+                {preview ? `${preview.start} – ${preview.end}${preview.endNextDay ? ' (+1 dag)' : ''}` : '—'}
               </p>
             </div>
           </>
         ) : (
           <>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Starts</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Start</label>
               <input
                 type="datetime-local"
                 required
                 value={startsAt}
                 onChange={(e) => setStartsAt(e.target.value)}
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Ends</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Slut</label>
               <input
                 type="datetime-local"
                 required
                 value={endsAt}
                 onChange={(e) => setEndsAt(e.target.value)}
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               />
             </div>
           </>
         )}
 
         <div className={mode === 'standard' ? 'sm:col-span-4' : 'sm:col-span-2'}>
-          <label className="mb-1 block text-xs font-medium text-slate-700">Notes</label>
+          <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Anteckningar</label>
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
           />
         </div>
 
-        {error && <p className="text-sm text-red-600 sm:col-span-4">{error}</p>}
+        {error && <p className="text-sm text-red-600 sm:col-span-4 dark:text-red-400">{error}</p>}
 
         <div className="sm:col-span-4">
           <button
             type="submit"
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
           >
-            Save shift
+            Spara pass
           </button>
         </div>
       </div>

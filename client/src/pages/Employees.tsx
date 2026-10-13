@@ -11,7 +11,7 @@ export function Employees() {
     try {
       setEmployees(await api.get<Employee[]>('/employees'))
     } catch {
-      setError('Could not load employees.')
+      setError('Kunde inte ladda anställda.')
     }
   }
 
@@ -22,16 +22,16 @@ export function Employees() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-900">Employees</h1>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Anställda</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
         >
-          {showForm ? 'Close' : '+ Add employee'}
+          {showForm ? 'Stäng' : '+ Lägg till anställd'}
         </button>
       </div>
 
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {showForm && (
         <NewEmployeeForm
@@ -42,21 +42,21 @@ export function Employees() {
         />
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-900/40 dark:text-slate-400">
             <tr>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Email</th>
-              <th className="px-4 py-2">Role</th>
+              <th className="px-4 py-2">Namn</th>
+              <th className="px-4 py-2">E-post</th>
+              <th className="px-4 py-2">Roll</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {employees.map((emp) => (
               <tr key={emp.id}>
-                <td className="px-4 py-2">{emp.name}</td>
-                <td className="px-4 py-2 text-slate-500">{emp.email}</td>
+                <td className="px-4 py-2 dark:text-slate-200">{emp.name}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{emp.email}</td>
                 <td className="px-4 py-2">
                   <select
                     value={emp.role}
@@ -64,9 +64,9 @@ export function Employees() {
                       await api.patch(`/employees/${emp.id}`, { role: e.target.value })
                       load()
                     }}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs"
+                    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
                   >
-                    <option value="EMPLOYEE">Employee</option>
+                    <option value="EMPLOYEE">Anställd</option>
                     <option value="ADMIN">Admin</option>
                   </select>
                 </td>
@@ -80,19 +80,19 @@ export function Employees() {
                     <div className="flex justify-end gap-3">
                       <button
                         onClick={() => setResetId(emp.id)}
-                        className="text-xs text-slate-600 hover:underline"
+                        className="text-xs text-slate-600 hover:underline dark:text-slate-400"
                       >
-                        Reset password
+                        Återställ lösenord
                       </button>
                       <button
                         onClick={async () => {
-                          if (!confirm(`Deactivate ${emp.name}?`)) return
+                          if (!confirm(`Inaktivera ${emp.name}?`)) return
                           await api.delete(`/employees/${emp.id}`)
                           load()
                         }}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs text-red-600 hover:underline dark:text-red-400"
                       >
-                        Deactivate
+                        Inaktivera
                       </button>
                     </div>
                   )}
@@ -101,8 +101,8 @@ export function Employees() {
             ))}
             {employees.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
-                  No employees yet.
+                <td colSpan={4} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
+                  Inga anställda än.
                 </td>
               </tr>
             )}
@@ -125,7 +125,7 @@ function ResetPasswordForm({ employeeId, onDone }: { employeeId: string; onDone:
       await api.patch(`/employees/${employeeId}/password`, { password })
       onDone()
     } catch {
-      setError('Must be 8+ characters.')
+      setError('Minst 8 tecken.')
     } finally {
       setBusy(false)
     }
@@ -133,25 +133,25 @@ function ResetPasswordForm({ employeeId, onDone }: { employeeId: string; onDone:
 
   return (
     <div className="flex items-center justify-end gap-2">
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
       <input
         type="password"
         autoFocus
-        placeholder="New password"
+        placeholder="Nytt lösenord"
         minLength={8}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="rounded border border-slate-300 px-2 py-1 text-xs"
+        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
       />
       <button
         onClick={submit}
         disabled={busy || password.length < 8}
-        className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
       >
-        Save
+        Spara
       </button>
-      <button onClick={onDone} className="text-xs text-slate-500 hover:underline">
-        Cancel
+      <button onClick={onDone} className="text-xs text-slate-500 hover:underline dark:text-slate-400">
+        Avbryt
       </button>
     </div>
   )
@@ -171,63 +171,63 @@ function NewEmployeeForm({ onCreated }: { onCreated: () => void }) {
       await api.post('/employees', { name, email, password, role })
       onCreated()
     } catch {
-      setError('Could not create employee. Check the email is unique and password is 8+ characters.')
+      setError('Kunde inte skapa anställd. Kontrollera att e-posten är unik och lösenordet minst 8 tecken.')
     }
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-4"
+      className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-4 dark:border-slate-700 dark:bg-slate-800"
     >
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Name</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Namn</label>
         <input
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Email</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">E-post</label>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Password</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Lösenord</label>
         <input
           type="password"
           required
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Role</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Roll</label>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value as 'ADMIN' | 'EMPLOYEE')}
-          className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         >
-          <option value="EMPLOYEE">Employee</option>
+          <option value="EMPLOYEE">Anställd</option>
           <option value="ADMIN">Admin</option>
         </select>
       </div>
-      {error && <p className="text-sm text-red-600 sm:col-span-4">{error}</p>}
+      {error && <p className="text-sm text-red-600 sm:col-span-4 dark:text-red-400">{error}</p>}
       <div className="sm:col-span-4">
         <button
           type="submit"
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
         >
-          Save employee
+          Spara anställd
         </button>
       </div>
     </form>

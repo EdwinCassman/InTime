@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, nextDateForCycleDay, type Employee, type RecurringAssignment, type ShiftTemplate } from '../lib/api'
 import { templateSelectClass } from '../lib/shiftColors'
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_LABELS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön']
 const CYCLE_DAYS = Array.from({ length: 14 }, (_, i) => ({
   cycleDay: i,
   week: i < 7 ? 1 : 2,
   label: DAY_LABELS[i % 7],
 }))
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+const dateFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'short', day: 'numeric' })
 
 export function RecurringSchedule() {
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -34,7 +34,7 @@ export function RecurringSchedule() {
       setTemplates(tpls)
       setAssignments(assigns)
     } catch {
-      setError('Could not load the recurring schedule.')
+      setError('Kunde inte ladda det återkommande schemat.')
     }
   }
 
@@ -54,7 +54,7 @@ export function RecurringSchedule() {
       await api.put('/recurring-assignments', { userId, cycleDay, shiftTemplateId })
       await load()
     } catch {
-      setError('Could not save that change.')
+      setError('Kunde inte spara ändringen.')
     } finally {
       setSavingKey(null)
     }
@@ -75,36 +75,36 @@ export function RecurringSchedule() {
       )
       await load()
     } catch {
-      setError('Could not copy week 1 to week 2.')
+      setError('Kunde inte kopiera vecka 1 till vecka 2.')
     }
   }
 
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-lg font-semibold text-slate-900">Recurring Schedule</h1>
-        <p className="text-sm text-slate-500">
-          Each employee's standing pattern across a repeating 2-week cycle — use this for rotations
-          like 7-on/7-off that differ between week 1 and week 2. The upcoming two weeks are kept
-          filled in automatically; deleting a generated shift on the Schedule page (e.g. for sick
-          leave) only affects that one day and won't be regenerated.
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Återkommande schema</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Varje anställds stående mönster över en upprepande 2-veckorscykel — använd detta för rotationer
+          som 7 dagar jobb/7 dagar ledigt som skiljer sig mellan vecka 1 och vecka 2. De kommande två
+          veckorna hålls automatiskt ifyllda; att ta bort ett genererat pass på schemasidan (t.ex. vid
+          sjukdom) påverkar bara den dagen och genereras inte om.
         </p>
       </div>
 
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-900/40 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2" rowSpan={2}>
-                Employee
+                Anställd
               </th>
               <th className="px-2 py-1 text-center" colSpan={7}>
-                Week 1
+                Vecka 1
               </th>
               <th className="px-2 py-1 text-center" colSpan={7}>
-                Week 2
+                Vecka 2
               </th>
               <th rowSpan={2}></th>
             </tr>
@@ -112,27 +112,27 @@ export function RecurringSchedule() {
               {CYCLE_DAYS.map((d, i) => (
                 <th key={d.cycleDay} className="px-2 py-1 text-center font-normal normal-case">
                   <div>{d.label}</div>
-                  <div className="text-[10px] text-slate-400">{dateFormatter.format(nextDates[i])}</div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500">{dateFormatter.format(nextDates[i])}</div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {employees.map((emp) => (
               <tr key={emp.id}>
-                <td className="px-4 py-2 font-medium text-slate-800">{emp.name}</td>
+                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{emp.name}</td>
                 {CYCLE_DAYS.map((d) => {
                   const assignment = assignmentFor(emp.id, d.cycleDay)
                   const key = `${emp.id}-${d.cycleDay}`
                   return (
-                    <td key={d.cycleDay} className={`px-1 py-2 text-center ${d.week === 2 ? 'bg-slate-50/50' : ''}`}>
+                    <td key={d.cycleDay} className={`px-1 py-2 text-center ${d.week === 2 ? 'bg-slate-50/50 dark:bg-slate-900/30' : ''}`}>
                       <select
                         value={assignment?.shiftTemplateId ?? ''}
                         disabled={savingKey === key}
                         onChange={(e) => setCell(emp.id, d.cycleDay, e.target.value || null)}
                         className={`w-full rounded border px-1 py-1 text-xs disabled:opacity-50 ${templateSelectClass(assignment?.shiftTemplate.name)}`}
                       >
-                        <option value="">Off</option>
+                        <option value="">Ledig</option>
                         {templates.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.name}
@@ -146,18 +146,18 @@ export function RecurringSchedule() {
                   <button
                     type="button"
                     onClick={() => copyWeek1ToWeek2(emp.id)}
-                    title="Copy week 1's pattern into week 2 (for employees whose schedule doesn't alternate)"
-                    className="whitespace-nowrap text-xs text-slate-500 hover:text-slate-800 hover:underline"
+                    title="Kopiera vecka 1:s mönster till vecka 2 (för anställda vars schema inte växlar)"
+                    className="whitespace-nowrap text-xs text-slate-500 hover:text-slate-800 hover:underline dark:text-slate-400 dark:hover:text-slate-200"
                   >
-                    Copy wk1→wk2
+                    Kopiera v1→v2
                   </button>
                 </td>
               </tr>
             ))}
             {employees.length === 0 && (
               <tr>
-                <td colSpan={16} className="px-4 py-6 text-center text-slate-400">
-                  No employees yet.
+                <td colSpan={16} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
+                  Inga anställda än.
                 </td>
               </tr>
             )}
