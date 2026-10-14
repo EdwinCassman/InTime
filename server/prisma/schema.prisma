@@ -64,19 +64,26 @@ model ShiftTemplate {
   recurringAssignments RecurringAssignment[]
 }
 
-// The employee's standing pattern across a repeating 14-day cycle: which
-// template (if any) applies on a given cycle day. cycleDay 0-6 is "week 1"
-// (0 = Monday), 7-13 is "week 2" (7 = Monday). The cycle repeats forever from
-// a fixed reference date (see lib/cycle.ts) so two employees' patterns (e.g.
-// a 7-on/7-off rotation) can be offset from each other. This is what the
-// rolling 2-week schedule is generated from.
+// The employee's standing pattern across a repeating 14-day cycle: what
+// applies on a given cycle day. cycleDay 0-6 is "week 1" (0 = Monday, even
+// ISO week numbers), 7-13 is "week 2" (odd ISO week numbers) — computed
+// fresh from the real calendar every time (see lib/cycle.ts), so two
+// employees' patterns (e.g. a 7-on/7-off rotation) can be offset from each
+// other. This is what the rolling 2-week schedule is generated from.
+//
+// Each slot is either a standard template (shiftTemplateId set) or a custom
+// fixed time range (customStartTime/customEndTime set) — exactly one of the
+// two, enforced at the application layer.
 model RecurringAssignment {
-  id              String        @id @default(cuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cycleDay        Int // 0-13
-  shiftTemplateId String
-  shiftTemplate   ShiftTemplate @relation(fields: [shiftTemplateId], references: [id])
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycleDay          Int // 0-13
+  shiftTemplateId   String?
+  shiftTemplate     ShiftTemplate? @relation(fields: [shiftTemplateId], references: [id])
+  customStartTime   String? // "HH:mm"
+  customEndTime     String? // "HH:mm"
+  customEndNextDay  Boolean        @default(false)
 
   @@unique([userId, cycleDay])
 }
@@ -114,7 +121,12 @@ model Shift {
   claimRequests     ShiftClaimRequest[]
   shiftNotes        ShiftNote[]
 
-  @@index([userId, startsAt])
+  // Prevents the same employee ever getting two shifts starting at the exact
+  // same instant — including two concurrent rolling-schedule generations
+  // racing each other. (Open shifts, userId null, aren't constrained against
+  // each other — Postgres treats each NULL as distinct in a unique index.)
+  // This index also covers the userId+startsAt lookups elsewhere in the app.
+  @@unique([userId, startsAt])
 }
 
 // A request from the shift's own employee to be taken off it. Approving one

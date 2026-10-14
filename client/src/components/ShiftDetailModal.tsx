@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { api, type ShiftDetail, type ShiftNote, type ShiftNoteType } from '../lib/api'
-import { templateBadgeClass } from '../lib/shiftColors'
+import { api, type ShiftDetail, type ShiftNote, type ShiftNoteType, type ShiftTemplate } from '../lib/api'
+import { displayTemplateName, templateBadgeClass } from '../lib/shiftColors'
+import { TimeSelect } from './TimeSelect'
 
 const dateTimeFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'long',
   month: 'short',
   day: 'numeric',
 })
-const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit' })
-const noteTimeFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit', hour12: false })
+const noteTimeFormatter = new Intl.DateTimeFormat('sv-SE', {
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: false,
+})
 
 function toTimeInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -49,6 +56,11 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
   const [endTimeInput, setEndTimeInput] = useState('')
   const [timesBusy, setTimesBusy] = useState(false)
   const [timesError, setTimesError] = useState<string | null>(null)
+
+  const [templates, setTemplates] = useState<ShiftTemplate[]>([])
+  useEffect(() => {
+    api.get<ShiftTemplate[]>('/shift-templates').then(setTemplates).catch(() => {})
+  }, [])
 
   async function load() {
     setLoading(true)
@@ -126,6 +138,7 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
   const isOpen = detail ? detail.shift.userId === null : false
   const canClaim = isOpen && detail?.shift.originalUser?.id !== user?.id
   const hasStarted = detail ? new Date(detail.shift.startsAt) <= new Date() : false
+  const shiftTagName = detail ? displayTemplateName(detail.shift, templates) : null
 
   async function submitTimeAdjustment() {
     if (!detail) return
@@ -190,9 +203,9 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {detail.shift.shiftTemplate && (
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${templateBadgeClass(detail.shift.shiftTemplate.name)}`}>
-                    {detail.shift.shiftTemplate.name}
+                {shiftTagName && (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${templateBadgeClass(shiftTagName)}`}>
+                    {shiftTagName}
                   </span>
                 )}
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300" aria-label="Stäng">
@@ -218,23 +231,11 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                   <div className="mt-2 space-y-2">
                     <div className="flex items-center gap-2">
                       <label className="w-12 text-xs text-slate-500 dark:text-slate-400">Start</label>
-                      <input
-                        type="time"
-                        step={900}
-                        value={startTimeInput}
-                        onChange={(e) => setStartTimeInput(e.target.value)}
-                        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                      />
+                      <TimeSelect value={startTimeInput} onChange={setStartTimeInput} />
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="w-12 text-xs text-slate-500 dark:text-slate-400">Slut</label>
-                      <input
-                        type="time"
-                        step={900}
-                        value={endTimeInput}
-                        onChange={(e) => setEndTimeInput(e.target.value)}
-                        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                      />
+                      <TimeSelect value={endTimeInput} onChange={setEndTimeInput} />
                     </div>
                     <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       Tider kan bara ställas in på :00, :15, :30 eller :45.
@@ -304,17 +305,20 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                 <p className="text-sm text-slate-400 dark:text-slate-500">Ingen annan är schemalagd under detta pass.</p>
               ) : (
                 <ul className="space-y-1">
-                  {detail.coworkers.map((c) => (
+                  {detail.coworkers.map((c) => {
+                    const coworkerTagName = displayTemplateName(c, templates)
+                    return (
                     <li key={c.id} className="flex items-center justify-between text-sm">
                       <span className={c.user ? 'text-slate-700 dark:text-slate-300' : 'italic text-amber-700 dark:text-amber-400'}>
                         {c.user ? c.user.name : 'Ledigt pass'}
                       </span>
                       <span className="text-xs text-slate-400 dark:text-slate-500">
                         {timeFormatter.format(new Date(c.startsAt))} – {timeFormatter.format(new Date(c.endsAt))}
-                        {c.shiftTemplate && ` · ${c.shiftTemplate.name}`}
+                        {coworkerTagName && ` · ${coworkerTagName}`}
                       </span>
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               )}
             </section>

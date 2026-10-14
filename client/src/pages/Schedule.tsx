@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ShiftDetailModal } from '../components/ShiftDetailModal'
+import { TimeSelect } from '../components/TimeSelect'
 import { useAuth } from '../context/AuthContext'
 import { api, previewShiftTimes, type Employee, type Shift, type ShiftTemplate } from '../lib/api'
-import { templateBadgeClass } from '../lib/shiftColors'
+import { displayTemplateName, templateBadgeClass } from '../lib/shiftColors'
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date)
@@ -23,9 +24,9 @@ function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-function toLocalInputValue(date: Date): string {
+function toLocalTimeValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 function toLocalDateValue(date: Date): string {
@@ -36,7 +37,7 @@ function toLocalDateValue(date: Date): string {
 const dayFormatter = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', month: 'short', day: 'numeric' })
 const columnHeaderFormatter = new Intl.DateTimeFormat('sv-SE', { weekday: 'short' })
 const columnDateFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'short', day: 'numeric' })
-const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit' })
+const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit', hour12: false })
 
 export function Schedule() {
   const { user } = useAuth()
@@ -63,6 +64,22 @@ export function Schedule() {
     }
   }
 
+  async function clearEmployeeSchedule(employeeId: string, employeeName: string) {
+    if (
+      !confirm(
+        `Rensa ${employeeName}s schema? Det återkommande mönstret tas bort, och alla kommande pass (som inte redan har börjat) tas bort. Redan arbetade pass påverkas inte.`,
+      )
+    )
+      return
+    try {
+      const result = await api.post<{ removedShifts: number }>(`/employees/${employeeId}/clear-schedule`)
+      alert(`${result.removedShifts} kommande pass togs bort.`)
+      loadShifts()
+    } catch {
+      setError('Kunde inte rensa schemat.')
+    }
+  }
+
   useEffect(() => {
     loadShifts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,9 +87,7 @@ export function Schedule() {
 
   useEffect(() => {
     api.get<Employee[]>('/employees').then(setEmployees).catch(() => {})
-    if (user?.role === 'ADMIN') {
-      api.get<ShiftTemplate[]>('/shift-templates').then(setTemplates).catch(() => {})
-    }
+    api.get<ShiftTemplate[]>('/shift-templates').then(setTemplates).catch(() => {})
   }, [user])
 
   // "Me" row first (even if that account isn't in the fetched list yet), everyone else after.
@@ -199,8 +214,21 @@ export function Schedule() {
                         : 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-200'
                     }`}
                   >
-                    {emp.name}
-                    {isMe && <span className="ml-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">(du)</span>}
+                    <div className="flex items-center justify-between gap-2">
+                      <span>
+                        {emp.name}
+                        {isMe && <span className="ml-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">(du)</span>}
+                      </span>
+                      {user?.role === 'ADMIN' && (
+                        <button
+                          onClick={() => clearEmployeeSchedule(emp.id, emp.name)}
+                          title="Rensa återkommande mönster och alla kommande pass"
+                          className="text-[10px] font-normal text-red-500 hover:underline dark:text-red-400"
+                        >
+                          Rensa
+                        </button>
+                      )}
+                    </div>
                   </td>
                   {days.map((day) => {
                     const dayShifts = shiftsFor(emp.id, day)
@@ -217,15 +245,17 @@ export function Schedule() {
                           <span className="block text-center text-slate-300 dark:text-slate-600">—</span>
                         ) : (
                           <div className="space-y-1">
-                            {dayShifts.map((shift) => (
+                            {dayShifts.map((shift) => {
+                              const tagName = displayTemplateName(shift, templates)
+                              return (
                               <div
                                 key={shift.id}
                                 onClick={() => setSelectedShiftId(shift.id)}
                                 className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 dark:hover:ring-slate-500 ${isMe ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-slate-50 dark:bg-slate-700/60'}`}
                               >
-                                {shift.shiftTemplate && (
-                                  <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(shift.shiftTemplate.name)}`}>
-                                    {shift.shiftTemplate.name}
+                                {tagName && (
+                                  <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(tagName)}`}>
+                                    {tagName}
                                   </span>
                                 )}
                                 <div className="text-slate-600 dark:text-slate-300">
@@ -245,7 +275,8 @@ export function Schedule() {
                                   </button>
                                 )}
                               </div>
-                            ))}
+                              )
+                            })}
                             {approvedOffShifts.map((shift) => (
                               <div
                                 key={shift.id}
@@ -286,15 +317,17 @@ export function Schedule() {
                         <span className="block text-center text-slate-300 dark:text-slate-600">—</span>
                       ) : (
                         <div className="space-y-1">
-                          {dayOpenShifts.map((shift) => (
+                          {dayOpenShifts.map((shift) => {
+                            const tagName = displayTemplateName(shift, templates)
+                            return (
                             <div
                               key={shift.id}
                               onClick={() => setSelectedShiftId(shift.id)}
                               className="cursor-pointer rounded border border-dashed border-amber-400 bg-amber-100 p-1.5 text-xs hover:ring-1 hover:ring-amber-500 dark:border-amber-500/50 dark:bg-amber-500/20"
                             >
-                              {shift.shiftTemplate && (
-                                <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(shift.shiftTemplate.name)}`}>
-                                  {shift.shiftTemplate.name}
+                              {tagName && (
+                                <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(tagName)}`}>
+                                  {tagName}
                                 </span>
                               )}
                               <div className="text-amber-800 dark:text-amber-200">
@@ -303,8 +336,21 @@ export function Schedule() {
                               {shift.originalUser && (
                                 <div className="text-amber-600 dark:text-amber-400">var {shift.originalUser.name}</div>
                               )}
+                              {user?.role === 'ADMIN' && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    await api.delete(`/shifts/${shift.id}`)
+                                    loadShifts()
+                                  }}
+                                  className="text-red-600 hover:underline dark:text-red-400"
+                                >
+                                  Ta bort
+                                </button>
+                              )}
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       )}
                     </td>
@@ -348,8 +394,10 @@ function ShiftForm({
   const [shiftTemplateId, setShiftTemplateId] = useState('')
 
   // Custom-time fields
-  const [startsAt, setStartsAt] = useState(toLocalInputValue(defaultStart))
-  const [endsAt, setEndsAt] = useState(toLocalInputValue(defaultStart))
+  const [customStartDate, setCustomStartDate] = useState(toLocalDateValue(defaultStart))
+  const [customStartTime, setCustomStartTime] = useState(toLocalTimeValue(defaultStart))
+  const [customEndDate, setCustomEndDate] = useState(toLocalDateValue(defaultStart))
+  const [customEndTime, setCustomEndTime] = useState(toLocalTimeValue(defaultStart))
 
   const selectedTemplate = templates.find((t) => t.id === shiftTemplateId)
   const preview = useMemo(() => {
@@ -368,8 +416,8 @@ function ShiftForm({
       } else {
         await api.post('/shifts', {
           userId,
-          startsAt: new Date(startsAt).toISOString(),
-          endsAt: new Date(endsAt).toISOString(),
+          startsAt: new Date(`${customStartDate}T${customStartTime}`).toISOString(),
+          endsAt: new Date(`${customEndDate}T${customEndTime}`).toISOString(),
           notes: notes || undefined,
         })
       }
@@ -455,23 +503,29 @@ function ShiftForm({
           <>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Start</label>
-              <input
-                type="datetime-local"
-                required
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  required
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                />
+                <TimeSelect value={customStartTime} onChange={setCustomStartTime} />
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Slut</label>
-              <input
-                type="datetime-local"
-                required
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  required
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                />
+                <TimeSelect value={customEndTime} onChange={setCustomEndTime} />
+              </div>
             </div>
           </>
         )}

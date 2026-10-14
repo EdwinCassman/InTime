@@ -1,6 +1,6 @@
 import { cycleDayOf } from "./cycle.js";
 import { prisma } from "./prisma.js";
-import { computeShiftTimes } from "./shiftTemplates.js";
+import { computeCustomTimes, computeShiftTimes } from "./shiftTemplates.js";
 
 // Always keep at least this many days filled in, even if nobody's browsed that far ahead yet.
 const MIN_WINDOW_DAYS = 14;
@@ -67,7 +67,7 @@ export async function ensureRollingSchedule(through?: Date): Promise<void> {
     assignmentsByUserAndCycleDay.set(`${a.userId}|${a.cycleDay}`, a);
   }
 
-  const shiftsToCreate: { userId: string; startsAt: Date; endsAt: Date; shiftTemplateId: string; fromRecurring: boolean }[] = [];
+  const shiftsToCreate: { userId: string; startsAt: Date; endsAt: Date; shiftTemplateId: string | null; fromRecurring: boolean }[] = [];
 
   for (const day of days) {
     const cycleDay = cycleDayOf(day);
@@ -78,7 +78,9 @@ export async function ensureRollingSchedule(through?: Date): Promise<void> {
       const assignment = assignmentsByUserAndCycleDay.get(`${userId}|${cycleDay}`);
       if (!assignment) continue; // day off under the current pattern
 
-      const { startsAt, endsAt } = computeShiftTimes(assignment.shiftTemplate, day);
+      const { startsAt, endsAt } = assignment.shiftTemplate
+        ? computeShiftTimes(assignment.shiftTemplate, day)
+        : computeCustomTimes(day, assignment.customStartTime!, assignment.customEndTime!, assignment.customEndNextDay);
       shiftsToCreate.push({
         userId,
         startsAt,
@@ -90,6 +92,8 @@ export async function ensureRollingSchedule(through?: Date): Promise<void> {
   }
 
   if (shiftsToCreate.length > 0) {
-    await prisma.shift.createMany({ data: shiftsToCreate });
+    // skipDuplicates guards against two concurrent calls racing on the same
+    // (userId, startsAt) — the unique constraint on Shift makes that safe.
+    await prisma.shift.createMany({ data: shiftsToCreate, skipDuplicates: true });
   }
 }

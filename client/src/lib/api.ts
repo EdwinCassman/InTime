@@ -138,8 +138,11 @@ export interface RecurringAssignment {
   id: string
   userId: string
   cycleDay: number // 0-13: position in the repeating 14-day cycle (0 = Monday of week 1)
-  shiftTemplateId: string
-  shiftTemplate: ShiftTemplate
+  shiftTemplateId: string | null
+  shiftTemplate: ShiftTemplate | null
+  customStartTime: string | null // "HH:mm"
+  customEndTime: string | null // "HH:mm"
+  customEndNextDay: boolean
 }
 
 // Mirrors the weekday/weekend split used by the server's computeShiftTimes.
@@ -152,8 +155,11 @@ export function previewShiftTimes(template: ShiftTemplate, weekday: number): { s
   }
 }
 
+// "cycleDay" (0-13) identifies a slot in an employee's standing 2-week pattern:
+// 0-6 = "week 1" (Mon-Sun of an even ISO week number), 7-13 = "week 2" (odd ISO
+// week number) — computed fresh from the real calendar every time, so it
+// never drifts out of sync with real weeks. Must mirror the server's lib/cycle.ts.
 export const CYCLE_LENGTH_DAYS = 14
-const CYCLE_ANCHOR = new Date(2024, 0, 1) // Monday — must match the server's lib/cycle.ts
 
 function startOfDay(date: Date): Date {
   const d = new Date(date)
@@ -161,18 +167,35 @@ function startOfDay(date: Date): Date {
   return d
 }
 
+function weekdayMonFirst(date: Date): number {
+  return (date.getDay() + 6) % 7 // 0 = Monday ... 6 = Sunday
+}
+
+export function isoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = (d.getUTCDay() + 6) % 7
+  d.setUTCDate(d.getUTCDate() - dayNum + 3)
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3)
+  return 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 24 * 60 * 60 * 1000))
+}
+
+export function isEvenIsoWeek(date: Date): boolean {
+  return isoWeekNumber(date) % 2 === 0
+}
+
 export function cycleDayOf(date: Date): number {
-  const diffDays = Math.round(
-    (startOfDay(date).getTime() - startOfDay(CYCLE_ANCHOR).getTime()) / (1000 * 60 * 60 * 24),
-  )
-  return ((diffDays % CYCLE_LENGTH_DAYS) + CYCLE_LENGTH_DAYS) % CYCLE_LENGTH_DAYS
+  return weekdayMonFirst(date) + (isEvenIsoWeek(date) ? 0 : 7)
 }
 
 // The next date (today or later) that falls on the given cycle day.
 export function nextDateForCycleDay(cycleDay: number, from: Date = new Date()): Date {
   const today = startOfDay(from)
-  const diff = (cycleDay - cycleDayOf(today) + CYCLE_LENGTH_DAYS) % CYCLE_LENGTH_DAYS
-  const result = new Date(today)
-  result.setDate(result.getDate() + diff)
-  return result
+  for (let i = 0; i < 21; i++) {
+    const candidate = new Date(today)
+    candidate.setDate(candidate.getDate() + i)
+    if (cycleDayOf(candidate) === cycleDay) return candidate
+  }
+  return today
 }

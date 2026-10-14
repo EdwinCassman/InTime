@@ -1,3 +1,5 @@
+import type { ShiftTemplate } from './api'
+
 // Tailwind class names must appear literally in source for the JIT scanner to
 // pick them up, so this is a lookup table rather than a template-string builder.
 interface ColorClasses {
@@ -34,4 +36,39 @@ export function templateBadgeClass(name: string | null | undefined): string {
 export function templateSelectClass(name: string | null | undefined): string {
   if (!name) return OFF_SELECT
   return TEMPLATE_COLORS[name]?.select ?? OFF_SELECT
+}
+
+const MAX_MATCH_DIFF_MINUTES = 180
+
+function timeToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+
+// A shift isn't always linked to a template row (e.g. a custom-time recurring
+// slot, or one adjusted after the fact) — but it may still clearly "be" an
+// Opening/Day/Closing shift in spirit. Finds whichever template's start time
+// is closest to this shift's actual start, within a generous tolerance, so
+// the tag still shows even when the end time (or exact start) doesn't match
+// precisely. An explicitly linked template always wins outright.
+export function displayTemplateName(
+  shift: { startsAt: string; shiftTemplate: { name: string } | null },
+  templates: ShiftTemplate[],
+): string | null {
+  if (shift.shiftTemplate) return shift.shiftTemplate.name
+  if (templates.length === 0) return null
+
+  const start = new Date(shift.startsAt)
+  const weekday = start.getDay()
+  const isWeekend = weekday === 0 || weekday === 6
+  const startMinutes = start.getHours() * 60 + start.getMinutes()
+
+  let best: { name: string; diff: number } | null = null
+  for (const t of templates) {
+    const templateStart = timeToMinutes(isWeekend ? t.weekendStart : t.weekdayStart)
+    const diff = Math.abs(templateStart - startMinutes)
+    if (!best || diff < best.diff) best = { name: t.name, diff }
+  }
+
+  return best && best.diff <= MAX_MATCH_DIFF_MINUTES ? best.name : null
 }

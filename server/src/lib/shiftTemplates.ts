@@ -18,13 +18,26 @@ export function computeShiftTimes(template: ShiftTemplate, date: Date): { starts
   const start = weekend ? template.weekendStart : template.weekdayStart;
   const end = weekend ? template.weekendEnd : template.weekdayEnd;
   const endNextDay = weekend ? template.weekendEndNextDay : template.weekdayEndNextDay;
+  return applyStartEnd(date, start, end, endNextDay);
+}
 
+// Same, but for a fixed custom time range (no weekday/weekend variation —
+// the slot it came from already pins down a specific day).
+export function computeCustomTimes(
+  date: Date,
+  startTime: string,
+  endTime: string,
+  endNextDay: boolean,
+): { startsAt: Date; endsAt: Date } {
+  return applyStartEnd(date, startTime, endTime, endNextDay);
+}
+
+function applyStartEnd(date: Date, start: string, end: string, endNextDay: boolean): { startsAt: Date; endsAt: Date } {
   const startsAt = applyTime(date, start);
   let endsAt = applyTime(date, end);
   if (endNextDay) {
     endsAt = new Date(endsAt);
     endsAt.setDate(endsAt.getDate() + 1);
   }
-
   return { startsAt, endsAt };
 }

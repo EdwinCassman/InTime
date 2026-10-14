@@ -6,6 +6,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat('sv-SE', {
   day: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
+  hour12: false,
 })
 
 const STATUS_LABEL: Record<'PENDING' | 'APPROVED' | 'DENIED', string> = {

@@ -87,3 +87,23 @@ employeesRouter.delete("/:id", requireAdmin, async (req, res) => {
   await prisma.user.update({ where: { id: req.params.id }, data: { active: false } });
   res.status(204).send();
 });
+
+// Wipes an employee's recurring pattern and every one of their FUTURE shifts
+// (any origin — recurring or manually added), plus any future schedule
+// overrides, so a wrong setup can be fixed in one action instead of deleting
+// shifts one by one. Past shifts are never touched — they're real worked
+// hours needed for reports.
+employeesRouter.post("/:id/clear-schedule", requireAdmin, async (req, res) => {
+  const userId = req.params.id;
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  const [, , deletedShifts] = await prisma.$transaction([
+    prisma.recurringAssignment.deleteMany({ where: { userId } }),
+    prisma.scheduleOverride.deleteMany({ where: { userId, date: { gte: today } } }),
+    prisma.shift.deleteMany({ where: { userId, startsAt: { gt: now } } }),
+  ]);
+
+  res.json({ removedShifts: deletedShifts.count });
+});
