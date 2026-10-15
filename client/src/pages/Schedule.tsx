@@ -39,18 +39,40 @@ const columnHeaderFormatter = new Intl.DateTimeFormat('sv-SE', { weekday: 'short
 const columnDateFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'short', day: 'numeric' })
 const timeFormatter = new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', minute: '2-digit', hour12: false })
 
+const VIEW_WEEKS_STORAGE_KEY = 'intime_schedule_view_weeks'
+
+function getInitialViewWeeks(): number {
+  const stored = Number(localStorage.getItem(VIEW_WEEKS_STORAGE_KEY))
+  return stored === 2 || stored === 4 ? stored : 1
+}
+
 export function Schedule() {
   const { user } = useAuth()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
+  const [viewWeeks, setViewWeeks] = useState(getInitialViewWeeks)
   const [shifts, setShifts] = useState<Shift[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [templates, setTemplates] = useState<ShiftTemplate[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const [formState, setFormState] = useState<{ userId: string; date: Date } | null>(null)
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null)
 
-  const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart])
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
+  const viewDays = viewWeeks * 7
+  const weekEnd = useMemo(() => addDays(weekStart, viewDays), [weekStart, viewDays])
+  const days = useMemo(() => Array.from({ length: viewDays }, (_, i) => addDays(weekStart, i)), [weekStart, viewDays])
+
+  function changeViewWeeks(weeks: number) {
+    setViewWeeks(weeks)
+    localStorage.setItem(VIEW_WEEKS_STORAGE_KEY, String(weeks))
+  }
+
+  function toggleManualForm() {
+    setFormState((prev) => (prev ? null : { userId: '', date: weekStart }))
+  }
+
+  function openQuickAdd(userId: string, date: Date) {
+    setFormState({ userId, date })
+  }
 
   async function loadShifts() {
     setError(null)
@@ -83,7 +105,7 @@ export function Schedule() {
   useEffect(() => {
     loadShifts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart])
+  }, [weekStart, viewWeeks])
 
   useEffect(() => {
     api.get<Employee[]>('/employees').then(setEmployees).catch(() => {})
@@ -136,16 +158,16 @@ export function Schedule() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setWeekStart(addDays(weekStart, -7))}
+            onClick={() => setWeekStart(addDays(weekStart, -viewDays))}
             className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
           >
             ← Föreg.
           </button>
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {dayFormatter.format(weekStart)} – {dayFormatter.format(addDays(weekStart, 6))}
+            {dayFormatter.format(weekStart)} – {dayFormatter.format(addDays(weekStart, viewDays - 1))}
           </span>
           <button
-            onClick={() => setWeekStart(addDays(weekStart, 7))}
+            onClick={() => setWeekStart(addDays(weekStart, viewDays))}
             className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
           >
             Nästa →
@@ -156,26 +178,47 @@ export function Schedule() {
           >
             Idag
           </button>
+          <div className="flex overflow-hidden rounded border border-slate-300 dark:border-slate-600">
+            {[
+              { weeks: 1, label: '1 vecka' },
+              { weeks: 2, label: '2 veckor' },
+              { weeks: 4, label: '4 veckor' },
+            ].map((option, i) => (
+              <button
+                key={option.weeks}
+                onClick={() => changeViewWeeks(option.weeks)}
+                className={`px-2 py-1 text-sm ${i > 0 ? 'border-l border-slate-300 dark:border-slate-600' : ''} ${
+                  viewWeeks === option.weeks
+                    ? 'bg-slate-900 text-white dark:bg-slate-600'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
         {user?.role === 'ADMIN' && (
           <button
-            onClick={() => setShowForm((v) => !v)}
+            onClick={toggleManualForm}
             className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
           >
-            {showForm ? 'Stäng' : '+ Lägg till pass'}
+            {formState ? 'Stäng' : '+ Lägg till pass'}
           </button>
         )}
       </div>
 
       {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      {showForm && user?.role === 'ADMIN' && (
+      {formState && user?.role === 'ADMIN' && (
         <ShiftForm
+          key={`${formState.userId}-${formState.date.toISOString()}`}
           employees={employees}
           templates={templates}
-          defaultStart={weekStart}
+          defaultStart={formState.date}
+          defaultUserId={formState.userId}
           onCreated={() => {
-            setShowForm(false)
+            setFormState(null)
             loadShifts()
           }}
         />
@@ -237,9 +280,10 @@ export function Schedule() {
                     return (
                       <td
                         key={day.toISOString()}
+                        onClick={user?.role === 'ADMIN' ? () => openQuickAdd(emp.id, day) : undefined}
                         className={`px-2 py-2 align-top ${isToday ? 'ring-1 ring-inset ring-indigo-300 dark:ring-indigo-500/40' : ''} ${
                           isToday && !isMe ? 'bg-indigo-50/50 dark:bg-indigo-500/10' : ''
-                        }`}
+                        } ${user?.role === 'ADMIN' ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40' : ''}`}
                       >
                         {dayShifts.length === 0 && approvedOffShifts.length === 0 ? (
                           <span className="block text-center text-slate-300 dark:text-slate-600">—</span>
@@ -250,7 +294,10 @@ export function Schedule() {
                               return (
                               <div
                                 key={shift.id}
-                                onClick={() => setSelectedShiftId(shift.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedShiftId(shift.id)
+                                }}
                                 className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 dark:hover:ring-slate-500 ${isMe ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-slate-50 dark:bg-slate-700/60'}`}
                               >
                                 {tagName && (
@@ -280,7 +327,10 @@ export function Schedule() {
                             {approvedOffShifts.map((shift) => (
                               <div
                                 key={shift.id}
-                                onClick={() => setSelectedShiftId(shift.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedShiftId(shift.id)
+                                }}
                                 className="cursor-pointer rounded border border-dashed border-slate-300 bg-slate-100 p-1.5 text-xs text-slate-400 hover:ring-1 hover:ring-slate-400 dark:border-slate-600 dark:bg-slate-700/40 dark:text-slate-500 dark:hover:ring-slate-500"
                               >
                                 <div>
@@ -299,7 +349,7 @@ export function Schedule() {
             })}
             {orderedEmployees.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
+                <td colSpan={viewDays + 1} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   Inga anställda än.
                 </td>
               </tr>
@@ -377,15 +427,17 @@ function ShiftForm({
   employees,
   templates,
   defaultStart,
+  defaultUserId = '',
   onCreated,
 }: {
   employees: Employee[]
   templates: ShiftTemplate[]
   defaultStart: Date
+  defaultUserId?: string
   onCreated: () => void
 }) {
   const [mode, setMode] = useState<'standard' | 'custom'>('standard')
-  const [userId, setUserId] = useState('')
+  const [userId, setUserId] = useState(defaultUserId)
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
 

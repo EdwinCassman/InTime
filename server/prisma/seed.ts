@@ -8,7 +8,7 @@ const STANDARD_SHIFT_TEMPLATES = [
   {
     name: "Öppning",
     weekdayStart: "05:00",
-    weekdayEnd: "12:00",
+    weekdayEnd: "12:30",
     weekdayEndNextDay: false,
     weekendStart: "07:00",
     weekendEnd: "14:00",

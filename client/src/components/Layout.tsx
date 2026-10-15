@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { api, type ShiftClaimRequest, type TimeOffRequest } from '../lib/api'
@@ -47,6 +47,8 @@ function ThemeToggle() {
 
 export function Layout() {
   const { user, logout } = useAuth()
+  const location = useLocation()
+  const isWidePage = location.pathname === '/schedule'
   const [menuOpen, setMenuOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const visibleItems = navItems.filter((item) => !item.adminOnly || user?.role === 'ADMIN')
@@ -169,7 +171,7 @@ export function Layout() {
           </div>
         )}
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className={`mx-auto px-4 py-6 ${isWidePage ? 'max-w-[1800px]' : 'max-w-5xl'}`}>
         <Outlet />
       </main>
     </div>
