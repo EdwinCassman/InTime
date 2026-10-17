@@ -47,7 +47,7 @@ export function Employees() {
           <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-900/40 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2">Namn</th>
-              <th className="px-4 py-2">E-post</th>
+              <th className="px-4 py-2">Användarnamn</th>
               <th className="px-4 py-2">Roll</th>
               <th className="px-4 py-2"></th>
             </tr>
@@ -56,7 +56,23 @@ export function Employees() {
             {employees.map((emp) => (
               <tr key={emp.id}>
                 <td className="px-4 py-2 dark:text-slate-200">{emp.name}</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{emp.email}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+                  <input
+                    defaultValue={emp.username}
+                    onBlur={async (e) => {
+                      const value = e.target.value.trim()
+                      if (!value || value === emp.username) return
+                      try {
+                        await api.patch(`/employees/${emp.id}`, { username: value })
+                        load()
+                      } catch {
+                        setError('Kunde inte uppdatera användarnamnet. Det kan redan vara upptaget.')
+                        e.target.value = emp.username
+                      }
+                    }}
+                    className="w-28 rounded border border-transparent bg-transparent px-1 py-0.5 text-slate-600 hover:border-slate-300 focus:border-slate-400 focus:bg-white focus:outline-none dark:text-slate-400 dark:hover:border-slate-600 dark:focus:border-slate-500 dark:focus:bg-slate-700"
+                  />
+                </td>
                 <td className="px-4 py-2">
                   <select
                     value={emp.role}
@@ -159,7 +175,7 @@ function ResetPasswordForm({ employeeId, onDone }: { employeeId: string; onDone:
 
 function NewEmployeeForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'ADMIN' | 'EMPLOYEE'>('EMPLOYEE')
   const [error, setError] = useState<string | null>(null)
@@ -168,10 +184,10 @@ function NewEmployeeForm({ onCreated }: { onCreated: () => void }) {
     e.preventDefault()
     setError(null)
     try {
-      await api.post('/employees', { name, email, password, role })
+      await api.post('/employees', { name, username, password, role })
       onCreated()
     } catch {
-      setError('Kunde inte skapa anställd. Kontrollera att e-posten är unik och lösenordet minst 8 tecken.')
+      setError('Kunde inte skapa anställd. Kontrollera att användarnamnet är unikt och lösenordet minst 8 tecken.')
     }
   }
 
@@ -190,12 +206,12 @@ function NewEmployeeForm({ onCreated }: { onCreated: () => void }) {
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">E-post</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">Användarnamn</label>
         <input
-          type="email"
+          type="text"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         />
       </div>

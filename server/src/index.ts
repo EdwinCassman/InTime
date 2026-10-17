@@ -1,6 +1,10 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+// Side-effect import: patches Express so a rejected promise in an async route
+// handler is forwarded to the error-handling middleware below instead of
+// becoming an unhandled rejection that crashes the whole process.
+import "express-async-errors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { authRouter } from "./routes/auth.js";
@@ -40,6 +44,13 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.join(clientDist, "index.html"));
   });
 }
+
+// Catches any error from a route handler (sync throw or rejected promise) so
+// one bad request returns a 500 instead of taking the whole server down.
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 app.listen(port, () => {

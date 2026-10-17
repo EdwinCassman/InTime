@@ -7,18 +7,18 @@ import { prisma } from "../lib/prisma.js";
 export const authRouter = Router();
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(1),
   password: z.string().min(1),
 });
 
 authRouter.post("/login", async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid email or password format" });
+    return res.status(400).json({ error: "Invalid username or password format" });
   }
 
-  const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  const { username, password } = parsed.data;
+  const user = await prisma.user.findUnique({ where: { username } });
 
   if (!user || !user.active) {
     return res.status(401).json({ error: "Invalid credentials" });
@@ -37,6 +37,6 @@ authRouter.post("/login", async (req, res) => {
 
   res.json({
     token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    user: { id: user.id, username: user.username, name: user.name, role: user.role },
   });
 });

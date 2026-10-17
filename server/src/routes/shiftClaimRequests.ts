@@ -67,6 +67,14 @@ shiftClaimRequestsRouter.patch("/:id", async (req, res) => {
   }
 
   const now = new Date();
+  const hours = (shift.endsAt.getTime() - shift.startsAt.getTime()) / 1000 / 60 / 60;
+
+  // If this shift is still tagged with an absence (it was opened by marking
+  // someone absent, not just a plain time-off approval), record a permanent
+  // COVERAGE event for whoever's claiming it — these hours weren't part of
+  // their own original schedule, so routes/reports.ts needs its own
+  // historical record of it, independent of whatever the shift's live
+  // absenceType/absenceUserId end up reflecting later.
   const [, , , updated] = await prisma.$transaction([
     prisma.shift.update({
       where: { id: shift.id },
@@ -84,6 +92,21 @@ shiftClaimRequestsRouter.patch("/:id", async (req, res) => {
       where: { id: request.id },
       include: { user: { select: { id: true, name: true } } },
     }),
+    ...(shift.absenceType
+      ? [
+          prisma.absenceEvent.create({
+            data: {
+              shiftId: shift.id,
+              employeeId: request.userId,
+              kind: "COVERAGE" as const,
+              absenceType: shift.absenceType,
+              hours,
+              shiftDate: shift.startsAt,
+              markedAt: now,
+            },
+          }),
+        ]
+      : []),
   ]);
 
   res.json(updated);

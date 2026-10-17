@@ -12,14 +12,20 @@ employeesRouter.use(requireAuth);
 employeesRouter.get("/", async (_req, res) => {
   const employees = await prisma.user.findMany({
     where: { active: true },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, username: true, role: true },
     orderBy: { name: "asc" },
   });
   res.json(employees);
 });
 
+const usernameSchema = z
+  .string()
+  .min(2)
+  .regex(/^[a-z0-9._-]+$/i, "Only letters, numbers, dots, underscores and hyphens are allowed")
+  .transform((s) => s.toLowerCase());
+
 const createSchema = z.object({
-  email: z.string().email(),
+  username: usernameSchema,
   name: z.string().min(1),
   password: z.string().min(8),
   role: z.enum(["ADMIN", "EMPLOYEE"]).default("EMPLOYEE"),
@@ -31,16 +37,16 @@ employeesRouter.post("/", requireAdmin, async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
-  const { email, name, password, role } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const { username, name, password, role } = parsed.data;
+  const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    return res.status(409).json({ error: "An employee with this email already exists" });
+    return res.status(409).json({ error: "An employee with this username already exists" });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const employee = await prisma.user.create({
-    data: { email, name, passwordHash, role },
-    select: { id: true, name: true, email: true, role: true },
+    data: { username, name, passwordHash, role },
+    select: { id: true, name: true, username: true, role: true },
   });
 
   res.status(201).json(employee);
@@ -48,6 +54,7 @@ employeesRouter.post("/", requireAdmin, async (req, res) => {
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
+  username: usernameSchema.optional(),
   role: z.enum(["ADMIN", "EMPLOYEE"]).optional(),
   active: z.boolean().optional(),
 });
@@ -58,10 +65,17 @@ employeesRouter.patch("/:id", requireAdmin, async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
+  if (parsed.data.username) {
+    const existing = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+    if (existing && existing.id !== req.params.id) {
+      return res.status(409).json({ error: "An employee with this username already exists" });
+    }
+  }
+
   const employee = await prisma.user.update({
     where: { id: req.params.id },
     data: parsed.data,
-    select: { id: true, name: true, email: true, role: true, active: true },
+    select: { id: true, name: true, username: true, role: true, active: true },
   });
 
   res.json(employee);

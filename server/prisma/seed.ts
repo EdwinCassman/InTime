@@ -46,21 +46,21 @@ async function seedShiftTemplates() {
 }
 
 async function seedAdmin() {
-  const email = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
+  const username = process.env.SEED_ADMIN_USERNAME ?? "admin";
   const password = process.env.SEED_ADMIN_PASSWORD ?? "changeme123";
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    console.log(`Admin ${email} already exists, skipping admin seed.`);
+    console.log(`Admin ${username} already exists, skipping admin seed.`);
     return;
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.create({
-    data: { email, name: "Admin", passwordHash, role: "ADMIN" },
+    data: { username, name: "Admin", passwordHash, role: "ADMIN" },
   });
 
-  console.log(`Created admin user: ${email} / ${password}`);
+  console.log(`Created admin user: ${username} / ${password}`);
   console.log("Change this password after first login.");
 }
 

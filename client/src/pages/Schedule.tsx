@@ -3,7 +3,7 @@ import { ShiftDetailModal } from '../components/ShiftDetailModal'
 import { TimeSelect } from '../components/TimeSelect'
 import { useAuth } from '../context/AuthContext'
 import { api, previewShiftTimes, type Employee, type Shift, type ShiftTemplate } from '../lib/api'
-import { displayTemplateName, templateBadgeClass } from '../lib/shiftColors'
+import { ABSENCE_BADGE_CLASS, ABSENCE_CELL_CLASS, ABSENCE_LABELS, displayTemplateName, templateBadgeClass } from '../lib/shiftColors'
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date)
@@ -291,6 +291,7 @@ export function Schedule() {
                           <div className="space-y-1">
                             {dayShifts.map((shift) => {
                               const tagName = displayTemplateName(shift, templates)
+                              const isCovering = Boolean(shift.absenceType)
                               return (
                               <div
                                 key={shift.id}
@@ -298,16 +299,25 @@ export function Schedule() {
                                   e.stopPropagation()
                                   setSelectedShiftId(shift.id)
                                 }}
-                                className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 dark:hover:ring-slate-500 ${isMe ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-slate-50 dark:bg-slate-700/60'}`}
+                                className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 dark:hover:ring-slate-500 ${
+                                  isCovering ? ABSENCE_CELL_CLASS : isMe ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-slate-50 dark:bg-slate-700/60'
+                                }`}
                               >
-                                {tagName && (
-                                  <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(tagName)}`}>
-                                    {tagName}
+                                {isCovering ? (
+                                  <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${ABSENCE_BADGE_CLASS}`}>
+                                    Täcker {ABSENCE_LABELS[shift.absenceType!]}
                                   </span>
+                                ) : (
+                                  tagName && (
+                                    <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(tagName)}`}>
+                                      {tagName}
+                                    </span>
+                                  )
                                 )}
-                                <div className="text-slate-600 dark:text-slate-300">
+                                <div className={isCovering ? '' : 'text-slate-600 dark:text-slate-300'}>
                                   {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
                                 </div>
+                                {isCovering && shift.absenceUser && <div className="italic">för {shift.absenceUser.name}</div>}
                                 {shift.notes && <div className="text-slate-500 dark:text-slate-400">{shift.notes}</div>}
                                 {user?.role === 'ADMIN' && (
                                   <button
@@ -331,12 +341,16 @@ export function Schedule() {
                                   e.stopPropagation()
                                   setSelectedShiftId(shift.id)
                                 }}
-                                className="cursor-pointer rounded border border-dashed border-slate-300 bg-slate-100 p-1.5 text-xs text-slate-400 hover:ring-1 hover:ring-slate-400 dark:border-slate-600 dark:bg-slate-700/40 dark:text-slate-500 dark:hover:ring-slate-500"
+                                className={`cursor-pointer rounded p-1.5 text-xs hover:ring-1 hover:ring-slate-400 dark:hover:ring-slate-500 ${
+                                  shift.absenceType
+                                    ? ABSENCE_CELL_CLASS
+                                    : 'border border-dashed border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-600 dark:bg-slate-700/40 dark:text-slate-500'
+                                }`}
                               >
                                 <div>
                                   {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
                                 </div>
-                                <div className="italic">Ledig (godkänd)</div>
+                                <div className="italic">{shift.absenceType ? ABSENCE_LABELS[shift.absenceType] : 'Ledig (godkänd)'}</div>
                               </div>
                             ))}
                           </div>
@@ -373,18 +387,28 @@ export function Schedule() {
                             <div
                               key={shift.id}
                               onClick={() => setSelectedShiftId(shift.id)}
-                              className="cursor-pointer rounded border border-dashed border-amber-400 bg-amber-100 p-1.5 text-xs hover:ring-1 hover:ring-amber-500 dark:border-amber-500/50 dark:bg-amber-500/20"
+                              className={`cursor-pointer rounded border border-dashed p-1.5 text-xs hover:ring-1 ${
+                                shift.absenceType
+                                  ? `${ABSENCE_CELL_CLASS} hover:ring-yellow-500`
+                                  : 'border-amber-400 bg-amber-100 hover:ring-amber-500 dark:border-amber-500/50 dark:bg-amber-500/20'
+                              }`}
                             >
-                              {tagName && (
-                                <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(tagName)}`}>
-                                  {tagName}
+                              {shift.absenceType ? (
+                                <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${ABSENCE_BADGE_CLASS}`}>
+                                  {ABSENCE_LABELS[shift.absenceType]}
                                 </span>
+                              ) : (
+                                tagName && (
+                                  <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${templateBadgeClass(tagName)}`}>
+                                    {tagName}
+                                  </span>
+                                )
                               )}
-                              <div className="text-amber-800 dark:text-amber-200">
+                              <div className={shift.absenceType ? '' : 'text-amber-800 dark:text-amber-200'}>
                                 {timeFormatter.format(new Date(shift.startsAt))} – {timeFormatter.format(new Date(shift.endsAt))}
                               </div>
                               {shift.originalUser && (
-                                <div className="text-amber-600 dark:text-amber-400">var {shift.originalUser.name}</div>
+                                <div className={shift.absenceType ? '' : 'text-amber-600 dark:text-amber-400'}>var {shift.originalUser.name}</div>
                               )}
                               {user?.role === 'ADMIN' && (
                                 <button

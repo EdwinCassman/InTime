@@ -1,4 +1,17 @@
-import type { ShiftTemplate } from './api'
+import type { AbsenceType, ShiftTemplate } from './api'
+
+export const ABSENCE_LABELS: Record<AbsenceType, string> = {
+  SICK: 'Sjuk',
+  VAB: 'VAB',
+  UNPAID_LEAVE: 'Ledig',
+  VACATION: 'Semester',
+}
+
+// Every absence type shows the same yellow cell, per spec — only the label differs.
+export const ABSENCE_CELL_CLASS =
+  'border border-dashed border-yellow-500 bg-yellow-200 text-yellow-900 dark:border-yellow-500/50 dark:bg-yellow-500/20 dark:text-yellow-200'
+export const ABSENCE_BADGE_CLASS =
+  'bg-yellow-200 text-yellow-900 dark:bg-yellow-500/20 dark:text-yellow-200'
 
 // Tailwind class names must appear literally in source for the JIT scanner to
 // pick them up, so this is a lookup table rather than a template-string builder.

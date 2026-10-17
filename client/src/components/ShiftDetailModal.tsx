@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { api, type ShiftDetail, type ShiftNote, type ShiftNoteType, type ShiftTemplate } from '../lib/api'
-import { displayTemplateName, templateBadgeClass } from '../lib/shiftColors'
+import { api, type AbsenceType, type ShiftDetail, type ShiftNote, type ShiftNoteType, type ShiftTemplate } from '../lib/api'
+import { ABSENCE_BADGE_CLASS, ABSENCE_LABELS, displayTemplateName, templateBadgeClass } from '../lib/shiftColors'
 import { TimeSelect } from './TimeSelect'
+
+const ABSENCE_TYPES: AbsenceType[] = ['SICK', 'VAB', 'UNPAID_LEAVE', 'VACATION']
 
 const dateTimeFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'long',
@@ -50,6 +52,9 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
 
   const [claimBusy, setClaimBusy] = useState(false)
   const [claimError, setClaimError] = useState<string | null>(null)
+
+  const [absenceBusy, setAbsenceBusy] = useState(false)
+  const [absenceError, setAbsenceError] = useState<string | null>(null)
 
   const [showTimesForm, setShowTimesForm] = useState(false)
   const [startTimeInput, setStartTimeInput] = useState('')
@@ -158,6 +163,34 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
     }
   }
 
+  async function markAbsence(type: AbsenceType) {
+    setAbsenceBusy(true)
+    setAbsenceError(null)
+    try {
+      await api.post(`/shifts/${shiftId}/absence`, { type })
+      await load()
+      onChanged()
+    } catch {
+      setAbsenceError('Kunde inte markera frånvaro.')
+    } finally {
+      setAbsenceBusy(false)
+    }
+  }
+
+  async function undoAbsence() {
+    setAbsenceBusy(true)
+    setAbsenceError(null)
+    try {
+      await api.delete(`/shifts/${shiftId}/absence`)
+      await load()
+      onChanged()
+    } catch {
+      setAbsenceError('Kunde inte ångra frånvaron.')
+    } finally {
+      setAbsenceBusy(false)
+    }
+  }
+
   async function submitClaim() {
     setClaimBusy(true)
     setClaimError(null)
@@ -201,18 +234,66 @@ export function ShiftDetailModal({ shiftId, onClose, onChanged }: { shiftId: str
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {timeFormatter.format(new Date(detail.shift.startsAt))} – {timeFormatter.format(new Date(detail.shift.endsAt))}
                 </p>
+                {!isOpen && detail.shift.absenceType && detail.shift.absenceUser && (
+                  <p className="text-xs italic text-yellow-700 dark:text-yellow-400">
+                    Täcker {detail.shift.absenceUser.name}s {ABSENCE_LABELS[detail.shift.absenceType]} — timmarna
+                    tillgodoräknas nästa månad
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                {shiftTagName && (
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${templateBadgeClass(shiftTagName)}`}>
-                    {shiftTagName}
+                {detail.shift.absenceType ? (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ABSENCE_BADGE_CLASS}`}>
+                    {ABSENCE_LABELS[detail.shift.absenceType]}
                   </span>
+                ) : (
+                  shiftTagName && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${templateBadgeClass(shiftTagName)}`}>
+                      {shiftTagName}
+                    </span>
+                  )
                 )}
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300" aria-label="Stäng">
                   ✕
                 </button>
               </div>
             </div>
+
+            {user?.role === 'ADMIN' && !isOpen && (
+              <section className="mb-4 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Markera frånvaro</h3>
+                {absenceError && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{absenceError}</p>}
+                <div className="flex flex-wrap gap-2">
+                  {ABSENCE_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => markAbsence(type)}
+                      disabled={absenceBusy}
+                      className="rounded border border-yellow-400 bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-100 disabled:opacity-50 dark:border-yellow-500/40 dark:bg-yellow-500/10 dark:text-yellow-300 dark:hover:bg-yellow-500/20"
+                    >
+                      {ABSENCE_LABELS[type]}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {user?.role === 'ADMIN' && isOpen && detail.shift.absenceType && (
+              <section className="mb-4 rounded border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-500/40 dark:bg-yellow-500/10">
+                <p className="mb-2 text-sm text-yellow-800 dark:text-yellow-300">
+                  Markerad som <span className="font-medium">{ABSENCE_LABELS[detail.shift.absenceType]}</span>
+                  {detail.shift.originalUser && ` för ${detail.shift.originalUser.name}`}.
+                </p>
+                {absenceError && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{absenceError}</p>}
+                <button
+                  onClick={undoAbsence}
+                  disabled={absenceBusy}
+                  className="rounded border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                >
+                  Ångra
+                </button>
+              </section>
+            )}
 
             {isOwn && hasStarted && (
               <section className="mb-4 rounded border border-slate-200 p-3 dark:border-slate-700">

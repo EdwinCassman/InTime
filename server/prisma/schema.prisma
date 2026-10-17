@@ -29,9 +29,27 @@ enum ShiftNoteType {
   TODO
 }
 
+// Why an employee isn't working a shift they were originally scheduled for.
+// Set alongside opening the shift (see lib/absence.ts) so it can still be
+// picked up by a coworker, while the original employee's payroll hours are
+// tracked separately — VACATION is fully paid and nets out against the
+// month's expected hours, the other three create a shortfall carried into
+// next month's expected hours (see routes/reports.ts).
+enum AbsenceType {
+  SICK
+  VAB
+  UNPAID_LEAVE
+  VACATION
+}
+
+enum AbsenceEventKind {
+  ABSENCE
+  COVERAGE
+}
+
 model User {
   id           String   @id @default(cuid())
-  email        String   @unique
+  username     String   @unique
   passwordHash String
   name         String
   role         Role     @default(EMPLOYEE)
@@ -40,6 +58,8 @@ model User {
 
   shifts               Shift[]                @relation("AssignedShifts")
   originalShifts       Shift[]                @relation("OriginalShifts")
+  absenceShifts        Shift[]                @relation("AbsenceShifts")
+  absenceEvents        AbsenceEvent[]
   recurringAssignments RecurringAssignment[]
   scheduleOverrides    ScheduleOverride[]
   timeOffRequests      TimeOffRequest[]
@@ -114,12 +134,23 @@ model Shift {
   notes           String?
   shiftTemplateId String?
   shiftTemplate   ShiftTemplate? @relation(fields: [shiftTemplateId], references: [id])
+  absenceType     AbsenceType?
+  // Who the shift's *current* absence applies to — reflects only the latest
+  // mark-absence action (overwritten if the shift changes hands again, e.g.
+  // a coworker claims it and is later marked absent themselves). Used for the
+  // live UI only (badges, "täcker X" labels); reports use the permanent
+  // AbsenceEvent log below instead, since that survives being overwritten.
+  absenceUserId   String?
+  absenceUser     User?          @relation("AbsenceShifts", fields: [absenceUserId], references: [id], onDelete: SetNull)
+  // When the *current* absence was marked — also just for the live UI.
+  absenceMarkedAt DateTime?
   fromRecurring   Boolean        @default(false)
   createdAt       DateTime       @default(now())
 
   timeOffRequests   TimeOffRequest[]
   claimRequests     ShiftClaimRequest[]
   shiftNotes        ShiftNote[]
+  absenceEvents     AbsenceEvent[]
 
   // Prevents the same employee ever getting two shifts starting at the exact
   // same instant — including two concurrent rolling-schedule generations
@@ -187,4 +218,42 @@ model ShiftNote {
   createdAt     DateTime      @default(now())
 
   @@index([shiftId])
+}
+
+// Marks a calendar month ("YYYY-MM") as having had its hours sent to the
+// salary office. Before a month is locked, any absence marked for a shift in
+// it just corrects that month's own reported hours directly. Once locked,
+// a later absence change for a shift still in that month can no longer alter
+// what was already submitted, so it's carried into the following month's
+// adjustment instead (see routes/reports.ts).
+model PayrollLock {
+  id       String   @id @default(cuid())
+  month    String   @unique // "YYYY-MM"
+  lockedAt DateTime @default(now())
+}
+
+// A permanent, append-only record of each absence-related payroll event on a
+// shift, kept separate from Shift.absenceType/absenceUserId (which only
+// reflect the *current* state, for the live UI) because a shift can change
+// hands more than once — e.g. Edwin is marked Sjuk, Andreas claims it, then
+// Andreas is *also* marked Sjuk for that same shift. Each handoff must keep
+// its own hours so reports stay correct no matter how many times a shift is
+// reassigned: an ABSENCE event is recorded for whoever is marked absent (the
+// hours they didn't work), a COVERAGE event for whoever then claims the
+// opened shift (the hours they did work, that weren't part of their own
+// original schedule). See routes/reports.ts for how these combine.
+model AbsenceEvent {
+  id          String           @id @default(cuid())
+  shiftId     String
+  shift       Shift            @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    User             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind        AbsenceEventKind
+  absenceType AbsenceType
+  hours       Float
+  shiftDate   DateTime // the shift's startsAt, i.e. which month this event belongs to
+  markedAt    DateTime         @default(now())
+
+  @@index([shiftId])
+  @@index([employeeId, shiftDate])
 }

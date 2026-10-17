@@ -25,7 +25,7 @@ cd server
 cp .env.example .env
 npm install
 npm run prisma:migrate       # creates tables
-SEED_ADMIN_EMAIL=you@company.com SEED_ADMIN_PASSWORD=yourpassword npm run seed
+SEED_ADMIN_USERNAME=admin SEED_ADMIN_PASSWORD=yourpassword npm run seed
 npm run dev                  # http://localhost:4000
 
 # 3. Frontend (new terminal)
@@ -35,7 +35,7 @@ npm install
 npm run dev                  # http://localhost:5173
 ```
 
-Log in with the admin email/password you seeded, then use the Employees page to add the rest of your team.
+Log in with the admin username/password you seeded, then use the Employees page to add the rest of your team.
 
 ## Day-to-day
 
@@ -68,5 +68,5 @@ After the first deploy, seed an admin account once (same command as local
 setup, pointed at the production `DATABASE_URL`):
 
 ```bash
-SEED_ADMIN_EMAIL=you@company.com SEED_ADMIN_PASSWORD=yourpassword npm run seed --prefix server
+SEED_ADMIN_USERNAME=admin SEED_ADMIN_PASSWORD=yourpassword npm run seed --prefix server
 ```

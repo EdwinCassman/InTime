@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 export function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -15,10 +15,10 @@ export function Login() {
     setError(null)
     setLoading(true)
     try {
-      await login(email, password)
+      await login(username, password)
       navigate('/schedule')
     } catch {
-      setError('Fel e-postadress eller lösenord.')
+      setError('Fel användarnamn eller lösenord.')
     } finally {
       setLoading(false)
     }
@@ -32,12 +32,12 @@ export function Login() {
       >
         <h1 className="mb-4 text-xl font-semibold text-slate-900 dark:text-slate-100">Logga in på InTime</h1>
 
-        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">E-post</label>
+        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Användarnamn</label>
         <input
-          type="email"
+          type="text"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className="mb-3 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         />
 

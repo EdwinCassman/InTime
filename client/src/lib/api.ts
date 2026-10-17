@@ -46,10 +46,12 @@ export type Role = 'ADMIN' | 'EMPLOYEE'
 export interface Employee {
   id: string
   name: string
-  email: string
+  username: string
   role: Role
   active?: boolean
 }
+
+export type AbsenceType = 'SICK' | 'VAB' | 'UNPAID_LEAVE' | 'VACATION'
 
 export interface Shift {
   id: string
@@ -59,7 +61,9 @@ export interface Shift {
   notes: string | null
   user: { id: string; name: string } | null
   originalUser: { id: string; name: string } | null
+  absenceUser: { id: string; name: string } | null
   shiftTemplate: ShiftTemplate | null
+  absenceType: AbsenceType | null
 }
 
 export interface HoursSummary {
@@ -68,6 +72,32 @@ export interface HoursSummary {
   hours: number
   simpleOvertimeHours: number
   doubleOvertimeHours: number
+}
+
+export interface AbsenceAdjustmentItem {
+  date: string
+  hours: number // signed: negative = deducted (own absence), positive = bonus (covered someone else's)
+  type: AbsenceType
+  label: string
+}
+
+export interface PayrollLock {
+  month: string
+  lockedAt: string | null
+}
+
+export interface MonthlyHoursRow {
+  userId: string
+  name: string
+  expectedHours: number
+  expectedSimpleOvertimeHours: number
+  expectedDoubleOvertimeHours: number
+  currentHours: number
+  currentSimpleOvertimeHours: number
+  currentDoubleOvertimeHours: number
+  vacationHours: number
+  adjustmentHours: number // signed net total (last month's deductions + bonuses)
+  adjustmentItems: AbsenceAdjustmentItem[]
 }
 
 export type TimeOffRequestStatus = 'PENDING' | 'APPROVED' | 'DENIED'

@@ -3,14 +3,14 @@ import { api, type Role } from '../lib/api'
 
 export interface AuthedUser {
   id: string
-  email: string
+  username: string
   name: string
   role: Role
 }
 
 interface AuthContextValue {
   user: AuthedUser | null
-  login: (email: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -27,9 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      async login(email: string, password: string) {
+      async login(username: string, password: string) {
         const res = await api.post<{ token: string; user: AuthedUser }>('/auth/login', {
-          email,
+          username,
           password,
         })
         localStorage.setItem('intime_token', res.token)

@@ -4,6 +4,7 @@ import { computeShiftTimes } from "../lib/shiftTemplates.js";
 import { ensureRollingSchedule } from "../lib/rollingSchedule.js";
 import { removeShift } from "../lib/removeShift.js";
 import { shiftsOverlap } from "../lib/shiftOverlap.js";
+import { clearShiftAbsence, markShiftAbsence } from "../lib/absence.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
@@ -14,6 +15,7 @@ shiftsRouter.use(requireAuth);
 const shiftInclude = {
   user: { select: { id: true, name: true } },
   originalUser: { select: { id: true, name: true } },
+  absenceUser: { select: { id: true, name: true } },
   shiftTemplate: true,
 } as const;
 
@@ -447,6 +449,41 @@ shiftsRouter.patch("/:id", requireAdmin, async (req, res) => {
     include: shiftInclude,
   });
 
+  res.json(shift);
+});
+
+const absenceSchema = z.object({ type: z.enum(["SICK", "VAB", "UNPAID_LEAVE", "VACATION"]) });
+
+// Marks the shift's current employee as absent for a tracked reason (Sjuk/
+// VAB/Ledig/Semester): opens it up for a coworker to claim, same as approving
+// a time-off request, but tags the reason so reports can account for it.
+shiftsRouter.post("/:id/absence", requireAdmin, async (req, res) => {
+  const parsed = absenceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const ok = await markShiftAbsence(req.params.id, parsed.data.type);
+  if (!ok) {
+    return res.status(409).json({ error: "This shift has no assigned employee to mark absent" });
+  }
+
+  const shift = await prisma.shift.findUnique({ where: { id: req.params.id }, include: shiftInclude });
+  res.json(shift);
+});
+
+// Undoes a mark-absence action, reassigning the shift back to its original
+// employee — only possible while it's still unclaimed by anyone else.
+shiftsRouter.delete("/:id/absence", requireAdmin, async (req, res) => {
+  const result = await clearShiftAbsence(req.params.id);
+  if (result === "not_found") {
+    return res.status(404).json({ error: "This shift isn't marked absent" });
+  }
+  if (result === "already_claimed") {
+    return res.status(409).json({ error: "A coworker already claimed this shift — can't undo" });
+  }
+
+  const shift = await prisma.shift.findUnique({ where: { id: req.params.id }, include: shiftInclude });
   res.json(shift);
 });
 
