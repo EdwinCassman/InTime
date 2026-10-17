@@ -245,22 +245,34 @@ reportsRouter.get("/monthly-hours", requireAdmin, async (req, res) => {
           DEDUCTING_ABSENCE_TYPES.includes(e.absenceType) &&
           isDeferred(e.markedAt, prevMonthLock),
       )
-      .map((e) => ({
-        date: dateFormatter.format(e.shift.startsAt),
-        hours: -round(hoursBetween(e.shift.startsAt, e.shift.endsAt)),
-        type: e.absenceType,
-        label: ABSENCE_LABELS[e.absenceType],
-      }));
+      .map((e) => {
+        const ot = computeOvertime(e.shift);
+        return {
+          date: dateFormatter.format(e.shift.startsAt),
+          hours: -round(hoursBetween(e.shift.startsAt, e.shift.endsAt)),
+          type: e.absenceType,
+          label: ABSENCE_LABELS[e.absenceType],
+          simpleOvertimeHours: round(ot.simpleHours),
+          doubleOvertimeHours: round(ot.doubleHours),
+        };
+      });
     const bonusItems = prevOwnEvents
       .filter((e) => e.kind === "COVERAGE" && isDeferred(e.markedAt, prevMonthLock))
-      .map((e) => ({
-        date: dateFormatter.format(e.shift.startsAt),
-        hours: round(hoursBetween(e.shift.startsAt, e.shift.endsAt)),
-        type: e.absenceType,
-        label: ABSENCE_LABELS[e.absenceType],
-      }));
+      .map((e) => {
+        const ot = computeOvertime(e.shift);
+        return {
+          date: dateFormatter.format(e.shift.startsAt),
+          hours: round(hoursBetween(e.shift.startsAt, e.shift.endsAt)),
+          type: e.absenceType,
+          label: ABSENCE_LABELS[e.absenceType],
+          simpleOvertimeHours: round(ot.simpleHours),
+          doubleOvertimeHours: round(ot.doubleHours),
+        };
+      });
     const adjustmentItems = [...deductionItems, ...bonusItems].sort((a, b) => a.date.localeCompare(b.date));
     const adjustmentHours = round(adjustmentItems.reduce((sum, i) => sum + i.hours, 0));
+    const adjustmentSimpleOvertimeHours = round(adjustmentItems.reduce((sum, i) => sum + i.simpleOvertimeHours, 0));
+    const adjustmentDoubleOvertimeHours = round(adjustmentItems.reduce((sum, i) => sum + i.doubleOvertimeHours, 0));
 
     return {
       userId: emp.id,
@@ -273,6 +285,8 @@ reportsRouter.get("/monthly-hours", requireAdmin, async (req, res) => {
       currentDoubleOvertimeHours: round(currentOvertime.double),
       vacationHours: round(vacationHoursTotal),
       adjustmentHours,
+      adjustmentSimpleOvertimeHours,
+      adjustmentDoubleOvertimeHours,
       adjustmentItems,
     };
   });

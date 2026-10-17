@@ -79,6 +79,8 @@ export interface AbsenceAdjustmentItem {
   hours: number // signed: negative = deducted (own absence), positive = bonus (covered someone else's)
   type: AbsenceType
   label: string
+  simpleOvertimeHours: number
+  doubleOvertimeHours: number
 }
 
 export interface PayrollLock {
@@ -97,6 +99,8 @@ export interface MonthlyHoursRow {
   currentDoubleOvertimeHours: number
   vacationHours: number
   adjustmentHours: number // signed net total (last month's deductions + bonuses)
+  adjustmentSimpleOvertimeHours: number
+  adjustmentDoubleOvertimeHours: number
   adjustmentItems: AbsenceAdjustmentItem[]
 }
 

@@ -273,11 +273,22 @@ export function Reports() {
                             {row.adjustmentHours > 0 ? '+' : ''}
                             {formatHours(row.adjustmentHours)}h
                           </span>
+                          {overtimeNote(row.adjustmentSimpleOvertimeHours, row.adjustmentDoubleOvertimeHours) && (
+                            <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+                              ({overtimeNote(row.adjustmentSimpleOvertimeHours, row.adjustmentDoubleOvertimeHours)})
+                            </span>
+                          )}
                           <ul className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
                             {row.adjustmentItems.map((item, i) => (
                               <li key={i}>
                                 {item.hours > 0 ? '+' : ''}
                                 {formatHours(item.hours)}h {item.date}, {item.label}
+                                {overtimeNote(item.simpleOvertimeHours, item.doubleOvertimeHours) && (
+                                  <span className="text-amber-500 dark:text-amber-500">
+                                    {' '}
+                                    ({overtimeNote(item.simpleOvertimeHours, item.doubleOvertimeHours)})
+                                  </span>
+                                )}
                               </li>
                             ))}
                           </ul>
